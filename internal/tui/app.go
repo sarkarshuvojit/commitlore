@@ -230,7 +230,7 @@ func (m model) renderHeader() string {
 	
 	// Create header with full width background
 	headerWithBg := headerStyle.
-		Width(80).
+		Width(100).
 		Align(lipgloss.Left).
 		Render(headerContent)
 	
@@ -281,8 +281,8 @@ func (m model) renderCommitList() string {
 func (m model) renderCommitRow(commit core.Commit, isSelected bool, isMultiSelected bool, isInRange bool) string {
 	// Truncate text to fit nicely
 	subject := commit.Subject
-	if len(subject) > 50 {
-		subject = subject[:47] + "..."
+	if len(subject) > 70 {
+		subject = subject[:67] + "..."
 	}
 	
 	author := commit.Author
@@ -354,12 +354,32 @@ func (m model) renderCommitRow(commit core.Commit, isSelected bool, isMultiSelec
 	// Apply full width background if needed
 	if needsFullWidth {
 		return style.
-			Width(76).
+			Width(96).
 			Align(lipgloss.Left).
 			Render(rowContent)
 	}
 	
 	return style.Render(rowContent)
+}
+
+func (m model) calculateTokensForSelection() int {
+	if len(m.selectedCommits) == 0 {
+		return 0
+	}
+	
+	totalTokens := 0
+	for index := range m.selectedCommits {
+		if index < len(m.commits) {
+			commit := m.commits[index]
+			diff, err := core.GetCommitDiff(m.repoPath, commit.Hash)
+			if err == nil {
+				tokens := core.EstimateTokenCount(string(diff))
+				totalTokens += tokens
+			}
+		}
+	}
+	
+	return totalTokens
 }
 
 func (m model) renderStatusBar() string {
@@ -370,7 +390,7 @@ func (m model) renderStatusBar() string {
 	clearHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("clear"))
 	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
 	
-	// Selection counter
+	// Selection counter and token count
 	selectionCount := len(m.selectedCommits)
 	selectionText := ""
 	if selectionCount > 0 {
@@ -378,7 +398,13 @@ func (m model) renderStatusBar() string {
 		if m.flashLimit {
 			style = flashStyle
 		}
-		selectionText = fmt.Sprintf(" • %s", style.Render(fmt.Sprintf("%d/5 selected", selectionCount)))
+		
+		tokenCount := m.calculateTokensForSelection()
+		tokenText := core.FormatTokenCount(tokenCount)
+		
+		selectionText = fmt.Sprintf(" • %s • %s", 
+			style.Render(fmt.Sprintf("%d/5 selected", selectionCount)),
+			positionStyle.Render(fmt.Sprintf("🪙 %s", tokenText)))
 	}
 	
 	// Selection mode indicator

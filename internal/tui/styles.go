@@ -141,7 +141,7 @@ var (
 			Padding(1, 2)
 	
 	contentStyle = lipgloss.NewStyle().
-			Width(80)
+			Width(100)
 	
 	scrollIndicatorStyle = lipgloss.NewStyle().
 				Foreground(textMuted).
