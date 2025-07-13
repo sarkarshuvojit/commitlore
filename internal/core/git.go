@@ -172,3 +172,31 @@ func getTotalCommitCount(repoPath string) (int, error) {
 
 	return count, nil
 }
+
+func GetCommitChangelist(repoPath, commitHash string) ([]byte, error) {
+	if !filepath.IsAbs(repoPath) {
+		absPath, err := filepath.Abs(repoPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+		repoPath = absPath
+	}
+
+	gitRoot, isRepo, err := GetGitDirectory(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if directory is a git repository: %w", err)
+	}
+	if !isRepo {
+		return nil, fmt.Errorf("directory %s is not a git repository", repoPath)
+	}
+	
+	repoPath = gitRoot
+
+	cmd := exec.Command("git", "-C", repoPath, "show", "--name-status", commitHash)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get changelist for commit %s: %w", commitHash, err)
+	}
+
+	return output, nil
+}
