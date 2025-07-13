@@ -34,7 +34,6 @@ var (
 var (
 	headerStyle = lipgloss.NewStyle().
 			Foreground(textPrimary).
-			Background(primaryColor).
 			Bold(true).
 			Padding(1, 2).
 			MarginBottom(2)
@@ -58,21 +57,18 @@ var (
 	
 	// Selected commit row
 	selectedCommitRowStyle = lipgloss.NewStyle().
-				Background(bgSelected).
 				Foreground(textPrimary).
 				Padding(0, 2).
 				MarginBottom(1)
 
 	// Multi-selected commit row
 	multiSelectedCommitRowStyle = lipgloss.NewStyle().
-				Background(secondaryColor).
 				Foreground(textPrimary).
 				Padding(0, 2).
 				MarginBottom(1)
 
 	// Range selection mode indicator
 	rangeSelectionRowStyle = lipgloss.NewStyle().
-				Background(accentColor).
 				Foreground(textPrimary).
 				Padding(0, 2).
 				MarginBottom(1)
@@ -119,7 +115,6 @@ var (
 // Status bar styles
 var (
 	statusBarStyle = lipgloss.NewStyle().
-			Background(bgSecondary).
 			Foreground(textSecondary).
 			Padding(0, 2).
 			MarginTop(2)
