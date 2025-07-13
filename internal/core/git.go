@@ -200,3 +200,49 @@ func GetCommitChangelist(repoPath, commitHash string) ([]byte, error) {
 
 	return output, nil
 }
+
+// GetCommitDiff returns the full diff for a given commit
+func GetCommitDiff(repoPath, commitHash string) ([]byte, error) {
+	if !filepath.IsAbs(repoPath) {
+		absPath, err := filepath.Abs(repoPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+		repoPath = absPath
+	}
+
+	gitRoot, isRepo, err := GetGitDirectory(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if directory is a git repository: %w", err)
+	}
+	if !isRepo {
+		return nil, fmt.Errorf("directory %s is not a git repository", repoPath)
+	}
+	
+	repoPath = gitRoot
+
+	cmd := exec.Command("git", "-C", repoPath, "show", "--format=", commitHash)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get diff for commit %s: %w", commitHash, err)
+	}
+
+	return output, nil
+}
+
+// EstimateTokenCount provides a rough estimate of token count for text
+// Uses the approximation that 1 token ≈ 4 characters for English text
+func EstimateTokenCount(text string) int {
+	return len(text) / 4
+}
+
+// FormatTokenCount formats token count in human-readable format (e.g., 2.3k, 1.5M)
+func FormatTokenCount(count int) string {
+	if count < 1000 {
+		return fmt.Sprintf("%d", count)
+	} else if count < 1000000 {
+		return fmt.Sprintf("%.1fk", float64(count)/1000)
+	} else {
+		return fmt.Sprintf("%.1fM", float64(count)/1000000)
+	}
+}
