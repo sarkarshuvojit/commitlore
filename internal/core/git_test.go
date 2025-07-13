@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestIsGitRepository(t *testing.T) {
+func TestGetGitDirectory(t *testing.T) {
 	t.Run("No Git repository", func(t *testing.T) {
 		tmpDir, err := os.MkdirTemp("", "no-git-*")
 		if err != nil {
@@ -17,12 +17,15 @@ func TestIsGitRepository(t *testing.T) {
 		}
 		defer os.RemoveAll(tmpDir)
 
-		isGit, err := IsGitRepository(tmpDir)
+		gitRoot, isGit, err := GetGitDirectory(tmpDir)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 		if isGit {
 			t.Error("Expected false for directory without Git repository")
+		}
+		if gitRoot != "" {
+			t.Errorf("Expected empty git root, got '%s'", gitRoot)
 		}
 	})
 
@@ -38,12 +41,15 @@ func TestIsGitRepository(t *testing.T) {
 			t.Fatalf("Failed to create .git directory: %v", err)
 		}
 
-		isGit, err := IsGitRepository(tmpDir)
+		gitRoot, isGit, err := GetGitDirectory(tmpDir)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 		if !isGit {
 			t.Error("Expected true for directory with .git directory")
+		}
+		if gitRoot != tmpDir {
+			t.Errorf("Expected git root '%s', got '%s'", tmpDir, gitRoot)
 		}
 	})
 
@@ -70,30 +76,39 @@ func TestIsGitRepository(t *testing.T) {
 		}
 
 		// Test from level 1
-		isGit, err := IsGitRepository(subDir1)
+		gitRoot, isGit, err := GetGitDirectory(subDir1)
 		if err != nil {
 			t.Fatalf("Unexpected error from level1: %v", err)
 		}
 		if !isGit {
 			t.Error("Expected true for level1 subdirectory with Git repository above")
 		}
+		if gitRoot != tmpDir {
+			t.Errorf("Expected git root '%s', got '%s'", tmpDir, gitRoot)
+		}
 
 		// Test from level 2
-		isGit, err = IsGitRepository(subDir2)
+		gitRoot, isGit, err = GetGitDirectory(subDir2)
 		if err != nil {
 			t.Fatalf("Unexpected error from level2: %v", err)
 		}
 		if !isGit {
 			t.Error("Expected true for level2 subdirectory with Git repository above")
 		}
+		if gitRoot != tmpDir {
+			t.Errorf("Expected git root '%s', got '%s'", tmpDir, gitRoot)
+		}
 
 		// Test from level 3
-		isGit, err = IsGitRepository(subDir3)
+		gitRoot, isGit, err = GetGitDirectory(subDir3)
 		if err != nil {
 			t.Fatalf("Unexpected error from level3: %v", err)
 		}
 		if !isGit {
 			t.Error("Expected true for level3 subdirectory with Git repository above")
+		}
+		if gitRoot != tmpDir {
+			t.Errorf("Expected git root '%s', got '%s'", tmpDir, gitRoot)
 		}
 	})
 
@@ -116,32 +131,41 @@ func TestIsGitRepository(t *testing.T) {
 		}
 
 		// Test from parent directory (should return false)
-		isGit, err := IsGitRepository(tmpDir)
+		gitRoot, isGit, err := GetGitDirectory(tmpDir)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 		if isGit {
 			t.Error("Expected false for parent directory without .git")
 		}
+		if gitRoot != "" {
+			t.Errorf("Expected empty git root, got '%s'", gitRoot)
+		}
 
 		// Test from subdirectory (should return true)
-		isGit, err = IsGitRepository(subDir)
+		gitRoot, isGit, err = GetGitDirectory(subDir)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 		if !isGit {
 			t.Error("Expected true for subdirectory with .git")
 		}
+		if gitRoot != subDir {
+			t.Errorf("Expected git root '%s', got '%s'", subDir, gitRoot)
+		}
 	})
 
 	t.Run("Invalid path", func(t *testing.T) {
 		// Test with non-existent path
-		isGit, err := IsGitRepository("/non/existent/path")
+		gitRoot, isGit, err := GetGitDirectory("/non/existent/path")
 		if err != nil {
 			t.Fatalf("Unexpected error for non-existent path: %v", err)
 		}
 		if isGit {
 			t.Error("Expected false for non-existent path")
+		}
+		if gitRoot != "" {
+			t.Errorf("Expected empty git root, got '%s'", gitRoot)
 		}
 	})
 
@@ -169,24 +193,28 @@ func TestIsGitRepository(t *testing.T) {
 		}
 
 		// Test with relative path
-		isGit, err := IsGitRepository(".")
+		gitRoot, isGit, err := GetGitDirectory(".")
 		if err != nil {
 			t.Fatalf("Unexpected error with relative path: %v", err)
 		}
 		if !isGit {
 			t.Error("Expected true for relative path to Git repository")
 		}
+		if gitRoot != tmpDir {
+			t.Errorf("Expected git root '%s', got '%s'", tmpDir, gitRoot)
+		}
 	})
 
 	t.Run("Empty path", func(t *testing.T) {
 		// Test with empty string (should use current directory)
-		isGit, err := IsGitRepository("")
+		gitRoot, isGit, err := GetGitDirectory("")
 		if err != nil {
 			t.Fatalf("Unexpected error with empty path: %v", err)
 		}
 		// Result depends on whether test is run in a Git repository
 		// We just verify no error occurs
 		_ = isGit
+		_ = gitRoot
 	})
 }
 

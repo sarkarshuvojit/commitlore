@@ -10,19 +10,20 @@ import (
 	"time"
 )
 
-// IsGitRepository checks if the given path is within a Git repository
-// by looking for a .git directory in the current path or any parent directory.
-func IsGitRepository(path string) (bool, error) {
+// GetGitDirectory finds the git repository root directory by looking for a .git directory
+// in the current path or any parent directory. Returns the git root path and true if found,
+// or empty string and false if not found.
+func GetGitDirectory(path string) (string, bool, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	
 	current := absPath
 	for {
 		gitPath := filepath.Join(current, ".git")
 		if _, err := os.Stat(gitPath); err == nil {
-			return true, nil
+			return current, true, nil
 		}
 		
 		parent := filepath.Dir(current)
@@ -32,7 +33,7 @@ func IsGitRepository(path string) (bool, error) {
 		current = parent
 	}
 	
-	return false, nil
+	return "", false, nil
 }
 
 type Commit struct {
@@ -61,13 +62,15 @@ func GetCommitLogs(repoPath string, perPage, pageNum int) (*CommitPage, error) {
 		repoPath = absPath
 	}
 
-	isRepo, err := IsGitRepository(repoPath)
+	gitRoot, isRepo, err := GetGitDirectory(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if directory is a git repository: %w", err)
 	}
 	if !isRepo {
 		return nil, fmt.Errorf("directory %s is not a git repository", repoPath)
 	}
+	
+	repoPath = gitRoot
 
 	skip := (pageNum - 1) * perPage
 	limit := perPage + 1

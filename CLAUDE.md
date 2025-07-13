@@ -71,3 +71,7 @@ The application requires a proper TTY environment. It will not run correctly in 
 - create and use subpackage roots as follows
 - internal/tui: This should hold display layer code ONLY
 - internal/core: This would contain all core code like interfacing with git, interfacing with llm, disk code etc. Make this code highly testable. Don't generate tests unless asked, but make sure the implementations are testable.
+
+## Development Notes
+
+- you cannot run this inside claude code because you don't have TTY support so stop trying to test it that way
