@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/sarkarshuvojit/commitlore/internal/core"
@@ -15,6 +16,8 @@ type ViewState int
 const (
 	ListingView ViewState = iota
 )
+
+type flashTimerMsg struct{}
 
 type model struct {
 	currentView     ViewState
@@ -30,6 +33,7 @@ type model struct {
 	selectedCommits map[int]bool // tracks selected commit indices
 	selectionMode   bool         // true when in visual selection mode
 	rangeStart      int          // start index for range selection
+	flashLimit      bool         // true when showing red flash for limit reached
 }
 
 func initialModel() model {
@@ -47,6 +51,7 @@ func initialModel() model {
 		selectedCommits: make(map[int]bool),
 		selectionMode:   false,
 		rangeStart:      -1,
+		flashLimit:      false,
 	}
 	
 	if !isGit {
@@ -64,6 +69,9 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case flashTimerMsg:
+		m.flashLimit = false
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -105,6 +113,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.selectedCommits[m.cursor] = true
 				}
+			} else {
+				// Flash the limit indicator
+				m.flashLimit = true
+				return m, tea.Tick(time.Millisecond*300, func(t time.Time) tea.Msg {
+					return flashTimerMsg{}
+				})
 			}
 		case "V":
 			// Range selection mode
@@ -127,6 +141,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					for i := start; i <= end; i++ {
 						m.selectedCommits[i] = true
 					}
+				} else {
+					// Flash the limit indicator
+					m.flashLimit = true
+					m.selectionMode = false
+					m.rangeStart = -1
+					return m, tea.Tick(time.Millisecond*300, func(t time.Time) tea.Msg {
+						return flashTimerMsg{}
+					})
 				}
 				m.selectionMode = false
 				m.rangeStart = -1
@@ -352,7 +374,11 @@ func (m model) renderStatusBar() string {
 	selectionCount := len(m.selectedCommits)
 	selectionText := ""
 	if selectionCount > 0 {
-		selectionText = fmt.Sprintf(" • %s", positionStyle.Render(fmt.Sprintf("%d/5 selected", selectionCount)))
+		style := positionStyle
+		if m.flashLimit {
+			style = flashStyle
+		}
+		selectionText = fmt.Sprintf(" • %s", style.Render(fmt.Sprintf("%d/5 selected", selectionCount)))
 	}
 	
 	// Selection mode indicator

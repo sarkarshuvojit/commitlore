@@ -129,6 +129,10 @@ var (
 	positionStyle = lipgloss.NewStyle().
 			Foreground(primaryColor).
 			Bold(true)
+	
+	flashStyle = lipgloss.NewStyle().
+			Foreground(errorColor).
+			Bold(true)
 )
 
 // Container styles
