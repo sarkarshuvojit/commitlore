@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/sarkarshuvojit/commitlore/internal/core"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -39,7 +40,7 @@ func initialModel() model {
 		repoPath:    gitRoot,
 		cursor:      0,
 		viewport:    0,
-		maxViewport: 15,
+		maxViewport: 8,
 	}
 	
 	if !isGit {
@@ -118,74 +119,147 @@ func (m *model) loadCommits() {
 
 func (m model) renderListingView() string {
 	if m.errorMsg != "" {
-		return fmt.Sprintf("\n  Error: %s\n\n  Press 'q' or Ctrl+C to quit.\n", m.errorMsg)
+		errorContent := errorStyle.Render(fmt.Sprintf("⚠ Error: %s", m.errorMsg))
+		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit")
+		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, errorContent, helpText))
 	}
 	
 	if len(m.commits) == 0 {
-		return "\n  No commits found.\n\n  Press 'q' or Ctrl+C to quit.\n"
+		emptyContent := emptyStyle.Render("📭 No commits found in this repository")
+		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit")
+		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Center, emptyContent, helpText))
 	}
 	
-	var sb strings.Builder
+	// Create header
+	header := m.renderHeader()
 	
-	// Top margin
-	sb.WriteString("\n")
+	// Create content
+	content := m.renderCommitList()
 	
-	// Header with left margin
-	sb.WriteString(fmt.Sprintf("  📋 Git Commits (Page %d) - %d total commits\n", m.currentPage, m.totalCommits))
-	sb.WriteString("  " + strings.Repeat("─", 76) + "\n\n")
+	// Create status bar
+	statusBar := m.renderStatusBar()
 	
+	// Combine all sections
+	main := lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		content,
+		statusBar,
+	)
+	
+	return appStyle.Render(main)
+}
+
+func (m model) renderHeader() string {
+	title := titleStyle.Render("✨ CommitLore")
+	subtitle := subtitleStyle.Render(fmt.Sprintf("Page %d • %d commits total", m.currentPage, m.totalCommits))
+	
+	headerContent := lipgloss.JoinVertical(lipgloss.Left, title, subtitle)
+	return headerStyle.Render(headerContent)
+}
+
+func (m model) renderCommitList() string {
 	// Calculate visible range
 	start := m.viewport
 	end := start + m.maxViewport
 	if end > len(m.commits) {
 		end = len(m.commits)
 	}
-	
-	// Ensure we don't go below 0
 	if start < 0 {
 		start = 0
 	}
 	
-	// Render visible commits with left margin
+	var rows []string
+	
 	for i := start; i < end; i++ {
 		commit := m.commits[i]
 		isSelected := i == m.cursor
 		
-		// Commit hash and message line
-		hashMsg := fmt.Sprintf("%s %s", commit.Hash[:8], commit.Subject)
-		if len(hashMsg) > 68 {
-			hashMsg = hashMsg[:65] + "..."
-		}
-		
-		// Author and date line
-		authorDate := fmt.Sprintf("%s • %s", commit.Author, commit.Date.Format("2006-01-02 15:04"))
-		if len(authorDate) > 68 {
-			authorDate = authorDate[:65] + "..."
-		}
-		
-		if isSelected {
-			// Highlighted row with margin
-			sb.WriteString(fmt.Sprintf("  ► ┌%s┐\n", strings.Repeat("─", 70)))
-			sb.WriteString(fmt.Sprintf("    │ %-68s │\n", hashMsg))
-			sb.WriteString(fmt.Sprintf("    │ %-68s │\n", authorDate))
-			sb.WriteString(fmt.Sprintf("    └%s┘\n", strings.Repeat("─", 70)))
-		} else {
-			// Regular row with margin
-			sb.WriteString(fmt.Sprintf("    %s\n", hashMsg))
-			sb.WriteString(fmt.Sprintf("    %s\n", authorDate))
-			sb.WriteString("\n")
-		}
+		row := m.renderCommitRow(commit, isSelected)
+		rows = append(rows, row)
 	}
 	
-	// Status bar with margin
-	sb.WriteString("\n  " + strings.Repeat("─", 76) + "\n")
-	sb.WriteString(fmt.Sprintf("  Navigate: ↑/↓ or j/k • Jump: g(top)/G(bottom) • Quit: q/Ctrl+C • Item %d/%d\n", 
-		m.cursor+1, len(m.commits)))
+	// Add scroll indicators if needed
+	var scrollIndicators []string
+	if m.viewport > 0 {
+		scrollIndicators = append(scrollIndicators, scrollIndicatorStyle.Render("↑ More above"))
+	}
+	if end < len(m.commits) {
+		scrollIndicators = append(scrollIndicators, scrollIndicatorStyle.Render("↓ More below"))
+	}
 	
-	// Bottom margin
-	sb.WriteString("\n")
+	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	if len(scrollIndicators) > 0 {
+		indicators := lipgloss.JoinVertical(lipgloss.Right, scrollIndicators...)
+		content = lipgloss.JoinVertical(lipgloss.Left, content, indicators)
+	}
 	
-	return sb.String()
+	return contentStyle.Render(content)
+}
+
+func (m model) renderCommitRow(commit core.Commit, isSelected bool) string {
+	// Truncate text to fit nicely
+	subject := commit.Subject
+	if len(subject) > 50 {
+		subject = subject[:47] + "..."
+	}
+	
+	author := commit.Author
+	if len(author) > 20 {
+		author = author[:17] + "..."
+	}
+	
+	hash := commit.Hash[:7]
+	date := commit.Date.Format("Jan 02, 15:04")
+	
+	if isSelected {
+		// Selected row with rich styling
+		hashText := selectedHashStyle.Render(hash)
+		subjectText := selectedSubjectStyle.Render(subject)
+		authorText := selectedAuthorStyle.Render(author)
+		dateText := selectedDateStyle.Render(date)
+		
+		firstLine := fmt.Sprintf("%s %s", hashText, subjectText)
+		secondLine := fmt.Sprintf("%s • %s", authorText, dateText)
+		
+		rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
+		return selectedCommitRowStyle.Render(rowContent)
+	} else {
+		// Regular row with subtle styling
+		hashText := hashStyle.Render(hash)
+		subjectText := subjectStyle.Render(subject)
+		authorText := authorStyle.Render(author)
+		dateText := dateStyle.Render(date)
+		
+		firstLine := fmt.Sprintf("%s %s", hashText, subjectText)
+		secondLine := fmt.Sprintf("%s • %s", authorText, dateText)
+		
+		rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
+		return commitRowStyle.Render(rowContent)
+	}
+}
+
+func (m model) renderStatusBar() string {
+	// Create help sections
+	navHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("↑↓/jk"), helpDescStyle.Render("navigate"))
+	jumpHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("g/G"), helpDescStyle.Render("top/bottom"))
+	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
+	
+	// Position indicator
+	position := positionStyle.Render(fmt.Sprintf("%d/%d", m.cursor+1, len(m.commits)))
+	
+	// Combine help text
+	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", jumpHelp, " • ", quitHelp)
+	
+	// Create status bar with help on left and position on right
+	statusContent := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		helpText,
+		strings.Repeat(" ", 20), // Spacer
+		position,
+	)
+	
+	return statusBarStyle.Render(statusContent)
 }
 
 func RunApp() error {
