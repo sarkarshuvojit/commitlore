@@ -155,7 +155,14 @@ func (m model) renderHeader() string {
 	subtitle := subtitleStyle.Render(fmt.Sprintf("Page %d • %d commits total", m.currentPage, m.totalCommits))
 	
 	headerContent := lipgloss.JoinVertical(lipgloss.Left, title, subtitle)
-	return headerStyle.Render(headerContent)
+	
+	// Create header with full width background
+	headerWithBg := headerStyle.
+		Width(80).
+		Align(lipgloss.Left).
+		Render(headerContent)
+	
+	return headerWithBg
 }
 
 func (m model) renderCommitList() string {
@@ -212,18 +219,29 @@ func (m model) renderCommitRow(commit core.Commit, isSelected bool) string {
 	hash := commit.Hash[:7]
 	date := commit.Date.Format("Jan 02, 15:04")
 	
+	// Cursor indicator for selected row
+	cursor := "  "
 	if isSelected {
-		// Selected row with rich styling
+		cursor = "▶ "
+	}
+	
+	if isSelected {
+		// Selected row with full width background highlight
 		hashText := selectedHashStyle.Render(hash)
 		subjectText := selectedSubjectStyle.Render(subject)
 		authorText := selectedAuthorStyle.Render(author)
 		dateText := selectedDateStyle.Render(date)
 		
-		firstLine := fmt.Sprintf("%s %s", hashText, subjectText)
-		secondLine := fmt.Sprintf("%s • %s", authorText, dateText)
+		firstLine := fmt.Sprintf("%s%s %s", cursor, hashText, subjectText)
+		secondLine := fmt.Sprintf("  %s • %s", authorText, dateText)
 		
 		rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
-		return selectedCommitRowStyle.Render(rowContent)
+		
+		// Apply background with full width
+		return selectedCommitRowStyle.
+			Width(76).
+			Align(lipgloss.Left).
+			Render(rowContent)
 	} else {
 		// Regular row with subtle styling
 		hashText := hashStyle.Render(hash)
@@ -231,8 +249,8 @@ func (m model) renderCommitRow(commit core.Commit, isSelected bool) string {
 		authorText := authorStyle.Render(author)
 		dateText := dateStyle.Render(date)
 		
-		firstLine := fmt.Sprintf("%s %s", hashText, subjectText)
-		secondLine := fmt.Sprintf("%s • %s", authorText, dateText)
+		firstLine := fmt.Sprintf("%s%s %s", cursor, hashText, subjectText)
+		secondLine := fmt.Sprintf("  %s • %s", authorText, dateText)
 		
 		rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
 		return commitRowStyle.Render(rowContent)

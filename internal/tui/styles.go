@@ -36,7 +36,7 @@ var (
 			Foreground(textPrimary).
 			Background(primaryColor).
 			Bold(true).
-			Padding(0, 2).
+			Padding(1, 2).
 			MarginBottom(2)
 	
 	titleStyle = lipgloss.NewStyle().
@@ -53,18 +53,15 @@ var (
 var (
 	// Base commit row
 	commitRowStyle = lipgloss.NewStyle().
-			Padding(0, 1).
+			Padding(0, 2).
 			MarginBottom(1)
 	
 	// Selected commit row
 	selectedCommitRowStyle = lipgloss.NewStyle().
 				Background(bgSelected).
 				Foreground(textPrimary).
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(borderAccent).
-				Padding(0, 1).
-				MarginBottom(2).
-				Bold(true)
+				Padding(0, 2).
+				MarginBottom(1)
 	
 	// Hash style
 	hashStyle = lipgloss.NewStyle().
