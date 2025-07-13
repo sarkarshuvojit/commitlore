@@ -1,8 +1,13 @@
 package core
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // IsGitRepository checks if the given path is within a Git repository
@@ -28,4 +33,139 @@ func IsGitRepository(path string) (bool, error) {
 	}
 	
 	return false, nil
+}
+
+type Commit struct {
+	Hash      string
+	Author    string
+	Email     string
+	Date      time.Time
+	Subject   string
+	Body      string
+}
+
+type CommitPage struct {
+	Commits   []Commit
+	PageNum   int
+	PerPage   int
+	HasMore   bool
+	Total     int
+}
+
+func GetCommitLogs(repoPath string, perPage, pageNum int) (*CommitPage, error) {
+	if !filepath.IsAbs(repoPath) {
+		absPath, err := filepath.Abs(repoPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+		repoPath = absPath
+	}
+
+	isRepo, err := IsGitRepository(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if directory is a git repository: %w", err)
+	}
+	if !isRepo {
+		return nil, fmt.Errorf("directory %s is not a git repository", repoPath)
+	}
+
+	skip := (pageNum - 1) * perPage
+	limit := perPage + 1
+
+	format := "--pretty=format:%H|%an|%ae|%at|%s|%b|||END|||"
+	
+	cmd := exec.Command("git", "-C", repoPath, "log", fmt.Sprintf("--skip=%d", skip), fmt.Sprintf("--max-count=%d", limit), format)
+	
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute git log: %w", err)
+	}
+
+	commits, err := parseCommits(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse commits: %w", err)
+	}
+
+	hasMore := len(commits) > perPage
+	if hasMore {
+		commits = commits[:perPage]
+	}
+
+	total, err := getTotalCommitCount(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total commit count: %w", err)
+	}
+
+	return &CommitPage{
+		Commits: commits,
+		PageNum: pageNum,
+		PerPage: perPage,
+		HasMore: hasMore,
+		Total:   total,
+	}, nil
+}
+
+func parseCommits(output string) ([]Commit, error) {
+	if strings.TrimSpace(output) == "" {
+		return []Commit{}, nil
+	}
+
+	parts := strings.Split(output, "|||END|||\n")
+	commits := make([]Commit, 0, len(parts))
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		fields := strings.SplitN(part, "|", 6)
+		if len(fields) < 5 {
+			continue
+		}
+
+		timestamp, err := strconv.ParseInt(fields[3], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse timestamp: %w", err)
+		}
+
+		body := ""
+		if len(fields) > 5 {
+			body = strings.TrimSpace(fields[5])
+		}
+
+		commit := Commit{
+			Hash:    fields[0],
+			Author:  fields[1],
+			Email:   fields[2],
+			Date:    time.Unix(timestamp, 0),
+			Subject: fields[4],
+			Body:    body,
+		}
+
+		commits = append(commits, commit)
+	}
+
+	return commits, nil
+}
+
+func reverseCommits(commits []Commit) {
+	for i, j := 0, len(commits)-1; i < j; i, j = i+1, j-1 {
+		commits[i], commits[j] = commits[j], commits[i]
+	}
+}
+
+func getTotalCommitCount(repoPath string) (int, error) {
+	cmd := exec.Command("git", "-C", repoPath, "rev-list", "--count", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get commit count: %w", err)
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse commit count: %w", err)
+	}
+
+	return count, nil
 }
