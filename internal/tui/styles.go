@@ -62,6 +62,20 @@ var (
 				Foreground(textPrimary).
 				Padding(0, 2).
 				MarginBottom(1)
+
+	// Multi-selected commit row
+	multiSelectedCommitRowStyle = lipgloss.NewStyle().
+				Background(secondaryColor).
+				Foreground(textPrimary).
+				Padding(0, 2).
+				MarginBottom(1)
+
+	// Range selection mode indicator
+	rangeSelectionRowStyle = lipgloss.NewStyle().
+				Background(accentColor).
+				Foreground(textPrimary).
+				Padding(0, 2).
+				MarginBottom(1)
 	
 	// Hash style
 	hashStyle = lipgloss.NewStyle().

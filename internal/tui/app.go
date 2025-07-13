@@ -17,16 +17,19 @@ const (
 )
 
 type model struct {
-	currentView  ViewState
-	commits      []core.Commit
-	currentPage  int
-	perPage      int
-	totalCommits int
-	repoPath     string
-	errorMsg     string
-	cursor       int
-	viewport     int
-	maxViewport  int
+	currentView     ViewState
+	commits         []core.Commit
+	currentPage     int
+	perPage         int
+	totalCommits    int
+	repoPath        string
+	errorMsg        string
+	cursor          int
+	viewport        int
+	maxViewport     int
+	selectedCommits map[int]bool // tracks selected commit indices
+	selectionMode   bool         // true when in visual selection mode
+	rangeStart      int          // start index for range selection
 }
 
 func initialModel() model {
@@ -34,13 +37,16 @@ func initialModel() model {
 	gitRoot, isGit, _ := core.GetGitDirectory(cwd)
 	
 	m := model{
-		currentView: ListingView,
-		currentPage: 1,
-		perPage:     20,
-		repoPath:    gitRoot,
-		cursor:      0,
-		viewport:    0,
-		maxViewport: 8,
+		currentView:     ListingView,
+		currentPage:     1,
+		perPage:         20,
+		repoPath:        gitRoot,
+		cursor:          0,
+		viewport:        0,
+		maxViewport:     8,
+		selectedCommits: make(map[int]bool),
+		selectionMode:   false,
+		rangeStart:      -1,
 	}
 	
 	if !isGit {
@@ -90,6 +96,50 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.viewport = 0
 				}
+			}
+		case "v":
+			// Toggle selection for current commit
+			if len(m.selectedCommits) < 5 || m.selectedCommits[m.cursor] {
+				if m.selectedCommits[m.cursor] {
+					delete(m.selectedCommits, m.cursor)
+				} else {
+					m.selectedCommits[m.cursor] = true
+				}
+			}
+		case "V":
+			// Range selection mode
+			if !m.selectionMode {
+				// Start range selection
+				m.selectionMode = true
+				m.rangeStart = m.cursor
+				m.selectedCommits[m.cursor] = true
+			} else {
+				// Complete range selection
+				start := m.rangeStart
+				end := m.cursor
+				if start > end {
+					start, end = end, start
+				}
+				
+				// Check if we can select the range without exceeding limit
+				rangeSize := end - start + 1
+				if len(m.selectedCommits)+rangeSize <= 5 {
+					for i := start; i <= end; i++ {
+						m.selectedCommits[i] = true
+					}
+				}
+				m.selectionMode = false
+				m.rangeStart = -1
+			}
+		case "escape":
+			// Clear selection mode and all selections
+			m.selectionMode = false
+			m.rangeStart = -1
+			m.selectedCommits = make(map[int]bool)
+		case "d":
+			// Deselect current commit
+			if m.selectedCommits[m.cursor] {
+				delete(m.selectedCommits, m.cursor)
 			}
 		}
 	}
@@ -181,8 +231,10 @@ func (m model) renderCommitList() string {
 	for i := start; i < end; i++ {
 		commit := m.commits[i]
 		isSelected := i == m.cursor
+		isMultiSelected := m.selectedCommits[i]
+		isInRange := m.selectionMode && ((m.rangeStart <= i && i <= m.cursor) || (m.cursor <= i && i <= m.rangeStart))
 		
-		row := m.renderCommitRow(commit, isSelected)
+		row := m.renderCommitRow(commit, isSelected, isMultiSelected, isInRange)
 		rows = append(rows, row)
 	}
 	
@@ -204,7 +256,7 @@ func (m model) renderCommitList() string {
 	return contentStyle.Render(content)
 }
 
-func (m model) renderCommitRow(commit core.Commit, isSelected bool) string {
+func (m model) renderCommitRow(commit core.Commit, isSelected bool, isMultiSelected bool, isInRange bool) string {
 	// Truncate text to fit nicely
 	subject := commit.Subject
 	if len(subject) > 50 {
@@ -219,62 +271,109 @@ func (m model) renderCommitRow(commit core.Commit, isSelected bool) string {
 	hash := commit.Hash[:7]
 	date := commit.Date.Format("Jan 02, 15:04")
 	
-	// Cursor indicator for selected row
+	// Cursor and selection indicators
 	cursor := "  "
+	selectionIndicator := ""
+	
 	if isSelected {
 		cursor = "▶ "
 	}
 	
+	if isMultiSelected {
+		selectionIndicator = "✓ "
+	} else if isInRange {
+		selectionIndicator = "~ "
+	}
+	
+	// Determine styling based on state priority
+	var style lipgloss.Style
+	var hashText, subjectText, authorText, dateText string
+	var needsFullWidth bool
+	
 	if isSelected {
-		// Selected row with full width background highlight
-		hashText := selectedHashStyle.Render(hash)
-		subjectText := selectedSubjectStyle.Render(subject)
-		authorText := selectedAuthorStyle.Render(author)
-		dateText := selectedDateStyle.Render(date)
-		
-		firstLine := fmt.Sprintf("%s%s %s", cursor, hashText, subjectText)
-		secondLine := fmt.Sprintf("  %s • %s", authorText, dateText)
-		
-		rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
-		
-		// Apply background with full width
-		return selectedCommitRowStyle.
+		// Current cursor position (highest priority)
+		style = selectedCommitRowStyle
+		needsFullWidth = true
+		hashText = selectedHashStyle.Render(hash)
+		subjectText = selectedSubjectStyle.Render(subject)
+		authorText = selectedAuthorStyle.Render(author)
+		dateText = selectedDateStyle.Render(date)
+	} else if isInRange {
+		// Range selection preview
+		style = rangeSelectionRowStyle
+		needsFullWidth = true
+		hashText = selectedHashStyle.Render(hash)
+		subjectText = selectedSubjectStyle.Render(subject)
+		authorText = selectedAuthorStyle.Render(author)
+		dateText = selectedDateStyle.Render(date)
+	} else if isMultiSelected {
+		// Multi-selected items
+		style = multiSelectedCommitRowStyle
+		needsFullWidth = true
+		hashText = selectedHashStyle.Render(hash)
+		subjectText = selectedSubjectStyle.Render(subject)
+		authorText = selectedAuthorStyle.Render(author)
+		dateText = selectedDateStyle.Render(date)
+	} else {
+		// Regular row
+		style = commitRowStyle
+		needsFullWidth = false
+		hashText = hashStyle.Render(hash)
+		subjectText = subjectStyle.Render(subject)
+		authorText = authorStyle.Render(author)
+		dateText = dateStyle.Render(date)
+	}
+	
+	firstLine := fmt.Sprintf("%s%s%s %s", cursor, selectionIndicator, hashText, subjectText)
+	secondLine := fmt.Sprintf("  %s • %s", authorText, dateText)
+	
+	rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
+	
+	// Apply full width background if needed
+	if needsFullWidth {
+		return style.
 			Width(76).
 			Align(lipgloss.Left).
 			Render(rowContent)
-	} else {
-		// Regular row with subtle styling
-		hashText := hashStyle.Render(hash)
-		subjectText := subjectStyle.Render(subject)
-		authorText := authorStyle.Render(author)
-		dateText := dateStyle.Render(date)
-		
-		firstLine := fmt.Sprintf("%s%s %s", cursor, hashText, subjectText)
-		secondLine := fmt.Sprintf("  %s • %s", authorText, dateText)
-		
-		rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
-		return commitRowStyle.Render(rowContent)
 	}
+	
+	return style.Render(rowContent)
 }
 
 func (m model) renderStatusBar() string {
 	// Create help sections
 	navHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("↑↓/jk"), helpDescStyle.Render("navigate"))
-	jumpHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("g/G"), helpDescStyle.Render("top/bottom"))
+	selectHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("v"), helpDescStyle.Render("select"))
+	rangeHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("V"), helpDescStyle.Render("range"))
+	clearHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("clear"))
 	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
+	
+	// Selection counter
+	selectionCount := len(m.selectedCommits)
+	selectionText := ""
+	if selectionCount > 0 {
+		selectionText = fmt.Sprintf(" • %s", positionStyle.Render(fmt.Sprintf("%d/5 selected", selectionCount)))
+	}
+	
+	// Selection mode indicator
+	modeText := ""
+	if m.selectionMode {
+		modeText = fmt.Sprintf(" • %s", helpKeyStyle.Render("RANGE MODE"))
+	}
 	
 	// Position indicator
 	position := positionStyle.Render(fmt.Sprintf("%d/%d", m.cursor+1, len(m.commits)))
 	
 	// Combine help text
-	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", jumpHelp, " • ", quitHelp)
+	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", selectHelp, " • ", rangeHelp, " • ", clearHelp, " • ", quitHelp)
 	
-	// Create status bar with help on left and position on right
+	// Create status bar with help on left and position/selection on right
+	rightSide := fmt.Sprintf("%s%s%s", position, selectionText, modeText)
 	statusContent := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		helpText,
-		strings.Repeat(" ", 20), // Spacer
-		position,
+		strings.Repeat(" ", 10), // Spacer
+		rightSide,
 	)
 	
 	return statusBarStyle.Render(statusContent)
