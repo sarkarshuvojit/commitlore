@@ -246,3 +246,91 @@ func FormatTokenCount(count int) string {
 		return fmt.Sprintf("%.1fM", float64(count)/1000000)
 	}
 }
+
+// Changeset represents a commit's changes with metadata
+type Changeset struct {
+	CommitHash string
+	Author     string
+	Date       time.Time
+	Subject    string
+	Body       string
+	Diff       string
+	Files      []string
+}
+
+// GetChangesForCommit retrieves detailed changeset for a specific commit
+func GetChangesForCommit(repoPath, commitHash string) (Changeset, error) {
+	if !filepath.IsAbs(repoPath) {
+		absPath, err := filepath.Abs(repoPath)
+		if err != nil {
+			return Changeset{}, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+		repoPath = absPath
+	}
+
+	gitRoot, isRepo, err := GetGitDirectory(repoPath)
+	if err != nil {
+		return Changeset{}, fmt.Errorf("failed to check if directory is a git repository: %w", err)
+	}
+	if !isRepo {
+		return Changeset{}, fmt.Errorf("directory %s is not a git repository", repoPath)
+	}
+	
+	repoPath = gitRoot
+
+	// Get commit metadata
+	metaCmd := exec.Command("git", "-C", repoPath, "show", "--format=%an|%at|%s|%b", "--no-patch", commitHash)
+	metaOutput, err := metaCmd.Output()
+	if err != nil {
+		return Changeset{}, fmt.Errorf("failed to get commit metadata for %s: %w", commitHash, err)
+	}
+
+	// Parse metadata
+	metaParts := strings.SplitN(strings.TrimSpace(string(metaOutput)), "|", 4)
+	if len(metaParts) < 3 {
+		return Changeset{}, fmt.Errorf("invalid commit metadata format")
+	}
+
+	timestamp, err := strconv.ParseInt(metaParts[1], 10, 64)
+	if err != nil {
+		return Changeset{}, fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+
+	// Get diff
+	diff, err := GetCommitDiff(repoPath, commitHash)
+	if err != nil {
+		return Changeset{}, fmt.Errorf("failed to get diff: %w", err)
+	}
+
+	// Get changed files
+	filesCmd := exec.Command("git", "-C", repoPath, "show", "--name-only", "--format=", commitHash)
+	filesOutput, err := filesCmd.Output()
+	if err != nil {
+		return Changeset{}, fmt.Errorf("failed to get changed files: %w", err)
+	}
+
+	files := []string{}
+	for _, file := range strings.Split(string(filesOutput), "\n") {
+		file = strings.TrimSpace(file)
+		if file != "" {
+			files = append(files, file)
+		}
+	}
+
+	body := ""
+	if len(metaParts) > 3 {
+		body = strings.TrimSpace(metaParts[3])
+	}
+
+	changeset := Changeset{
+		CommitHash: commitHash,
+		Author:     metaParts[0],
+		Date:       time.Unix(timestamp, 0),
+		Subject:    metaParts[2],
+		Body:       body,
+		Diff:       string(diff),
+		Files:      files,
+	}
+
+	return changeset, nil
+}
