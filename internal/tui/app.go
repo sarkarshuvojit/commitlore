@@ -65,6 +65,7 @@ type model struct {
 	flashLimit      bool         // true when showing red flash for limit reached
 	topics          []string     // extracted topics for topic selection view
 	llmProvider     core.LLMProvider // LLM provider for content generation
+	llmProviderType string           // type of LLM provider being used
 	topicCursor     int          // cursor for topic selection
 	selectedTopic   string       // currently selected topic
 	formatCursor    int          // cursor for format selection
@@ -79,13 +80,30 @@ func initialModel() model {
 	cwd, _ := os.Getwd()
 	gitRoot, isGit, _ := core.GetGitDirectory(cwd)
 	
-	// Initialize LLM provider - for now using mock or Claude if API key is available
+	// Initialize LLM provider - prefer Claude CLI, fallback to API, then mock
 	var llmProvider core.LLMProvider
-	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+	var llmProviderType string
+	if core.IsClaudeCLIAvailable() {
+		if cliClient, err := core.NewClaudeCLIClient(); err == nil {
+			llmProvider = cliClient
+			llmProviderType = "Claude CLI"
+		} else {
+			// Fallback to API if CLI initialization fails
+			if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+				llmProvider = core.NewClaudeClient(apiKey)
+				llmProviderType = "Claude API"
+			} else {
+				llmProvider = &mockLLMProvider{}
+				llmProviderType = "Mock"
+			}
+		}
+	} else if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
 		llmProvider = core.NewClaudeClient(apiKey)
+		llmProviderType = "Claude API"
 	} else {
-		// Create a mock provider for when no API key is available
+		// Create a mock provider for when no Claude CLI or API key is available
 		llmProvider = &mockLLMProvider{}
+		llmProviderType = "Mock"
 	}
 	
 	m := model{
@@ -96,6 +114,7 @@ func initialModel() model {
 		cursor:          0,
 		viewport:        0,
 		llmProvider:     llmProvider,
+		llmProviderType: llmProviderType,
 		maxViewport:     8,
 		selectedCommits: make(map[int]bool),
 		selectionMode:   false,
@@ -552,9 +571,10 @@ func (m model) renderStatusBar() string {
 		tokenCount := m.calculateTokensForSelection()
 		tokenText := core.FormatTokenCount(tokenCount)
 		
-		selectionText = fmt.Sprintf(" • %s • %s", 
+		selectionText = fmt.Sprintf(" • %s • %s • %s", 
 			style.Render(fmt.Sprintf("%d/5 selected", selectionCount)),
-			positionStyle.Render(fmt.Sprintf("🪙 %s", tokenText)))
+			positionStyle.Render(fmt.Sprintf("Tokens: 🪙 %s", tokenText)),
+			positionStyle.Render(fmt.Sprintf("Provider: %s", m.llmProviderType)))
 	}
 	
 	// Selection mode indicator
@@ -680,12 +700,15 @@ func (m model) renderTopicSelectionView() string {
 	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
 	
 	position := positionStyle.Render(fmt.Sprintf("%d/%d", m.topicCursor+1, len(m.topics)))
+	providerInfo := positionStyle.Render(fmt.Sprintf("Provider: %s", m.llmProviderType))
 	
 	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", selectHelp, " • ", backHelp, " • ", quitHelp)
 	statusContent := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		helpText,
-		strings.Repeat(" ", 10),
+		strings.Repeat(" ", 5),
+		providerInfo,
+		strings.Repeat(" ", 5),
 		position,
 	)
 	statusBar := statusBarStyle.Render(statusContent)
