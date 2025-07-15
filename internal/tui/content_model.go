@@ -33,11 +33,19 @@ type ContentModel struct {
 	isGenerating     bool
 	viewport         viewport.Model
 	showFinalOutput  bool
+	asyncWrapper     *llm.AsyncLLMWrapper
 }
 
 // NewContentModel creates a new content model
 func NewContentModel(base BaseModel) *ContentModel {
 	vp := viewport.New(80, 20)
+	
+	// Create async wrapper with 60 second timeout
+	var asyncWrapper *llm.AsyncLLMWrapper
+	if base.llmProvider != nil {
+		asyncWrapper = llm.NewAsyncLLMWrapper(base.llmProvider, 60*time.Second)
+	}
+	
 	return &ContentModel{
 		BaseModel:        base,
 		promptText:       "",
@@ -46,6 +54,7 @@ func NewContentModel(base BaseModel) *ContentModel {
 		isGenerating:     false,
 		viewport:         vp,
 		showFinalOutput:  false,
+		asyncWrapper:     asyncWrapper,
 	}
 }
 
@@ -55,6 +64,27 @@ func (m *ContentModel) Init() tea.Cmd {
 
 func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case llm.LLMResponseMsg:
+		m.isGenerating = false
+		if msg.Error != "" {
+			m.errorMsg = msg.Error
+			if !m.showFinalOutput {
+				m.generatedContent = ""
+			}
+		} else {
+			m.errorMsg = ""
+			// If this is a save success message, show it as status
+			if m.showFinalOutput && msg.Content != m.generatedContent {
+				// This is a save success message, show it briefly
+				m.errorMsg = msg.Content
+			} else {
+				// This is generated content
+				m.generatedContent = msg.Content
+				m.showFinalOutput = true
+				m.viewport.SetContent(msg.Content)
+			}
+		}
+		return m, nil
 	case ContentGeneratedMsg:
 		m.isGenerating = false
 		if msg.Error != "" {
@@ -198,7 +228,7 @@ func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
 		"format", m.selectedFormat,
 		"prompt_length", len(m.promptText))
 	
-	if m.llmProvider == nil {
+	if m.asyncWrapper == nil {
 		m.errorMsg = "LLM provider not configured"
 		logger.Error("LLM provider not configured for content generation")
 		return m, nil
@@ -206,27 +236,24 @@ func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
 	
 	m.generatedContent = ""
 	
-	return m, tea.Cmd(func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		
-		logger.Info("Calling LLM provider for content generation")
-		
-		// Get the appropriate system prompt based on format
-		var systemPrompt string
-		switch m.selectedFormat {
-		case "Twitter Thread":
-			systemPrompt = llm.TwitterThreadPrompt
-		case "Blog Article":
-			systemPrompt = llm.BlogPostPrompt
-		case "LinkedIn Post":
-			systemPrompt = llm.LinkedInPostPrompt
-		default:
-			systemPrompt = llm.ContentGenerationPrompt
-		}
-		
-		// Use the user's prompt text as the user prompt
-		userPrompt := fmt.Sprintf(`Create %s content about: %s
+	// Create channel for async response
+	responseChan := llm.CreateLLMResponseChannel()
+	
+	// Get the appropriate system prompt based on format
+	var systemPrompt string
+	switch m.selectedFormat {
+	case "Twitter Thread":
+		systemPrompt = llm.TwitterThreadPrompt
+	case "Blog Article":
+		systemPrompt = llm.BlogPostPrompt
+	case "LinkedIn Post":
+		systemPrompt = llm.LinkedInPostPrompt
+	default:
+		systemPrompt = llm.ContentGenerationPrompt
+	}
+	
+	// Use the user's prompt text as the user prompt
+	userPrompt := fmt.Sprintf(`Create %s content about: %s
 
 Please ensure the content is:
 - Technically accurate and up-to-date
@@ -236,26 +263,15 @@ Please ensure the content is:
 - Optimized for engagement and sharing
 
 Additional user instructions: %s`, m.selectedFormat, m.selectedTopic, m.promptText)
-		
-		content, err := m.llmProvider.GenerateContentWithSystemPrompt(ctx, systemPrompt, userPrompt)
-		if err != nil {
-			logger.Error("Failed to generate content", "error", err)
-			return ContentGeneratedMsg{
-				Content: "",
-				Error:   fmt.Sprintf("Failed to generate content: %v", err),
-			}
-		}
-		
-		logger.Info("Content generated successfully", 
-			"content_length", len(content),
-			"topic", m.selectedTopic,
-			"format", m.selectedFormat)
-		
-		return ContentGeneratedMsg{
-			Content: content,
-			Error:   "",
-		}
-	})
+	
+	// Start async LLM call
+	ctx := context.Background()
+	m.asyncWrapper.GenerateContentWithSystemPromptAsync(ctx, systemPrompt, userPrompt, responseChan)
+	
+	logger.Info("Started async LLM call for content generation")
+	
+	// Return command to wait for response
+	return m, llm.WaitForLLMResponse(responseChan)
 }
 
 // renderFinalOutput renders the final output view with scrollable viewport
