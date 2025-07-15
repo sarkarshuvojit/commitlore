@@ -1,10 +1,15 @@
-package core
+package llm
+
+import (
+	"fmt"
+	"strings"
+)
 
 // System prompts for analyzing commit changelists to extract feature-specific information
 // These prompts are designed to work with the key features outlined in the product specification
 
 // CommitAnalysisPrompt extracts key learning moments and technical achievements from commit data
-var CommitAnalysisPrompt = []byte(`You are an expert Git commit analyzer. Your task is to analyze the provided changelist and identify key learning moments, technical achievements, and significant development milestones.
+const CommitAnalysisPrompt = `You are an expert Git commit analyzer. Your task is to analyze the provided changelist and identify key learning moments, technical achievements, and significant development milestones.
 
 Focus on:
 - Technical breakthroughs or problem-solving moments
@@ -22,10 +27,10 @@ For each significant finding, provide:
 4. Potential impact or learning value
 
 Input: Commit changelist with diffs, commit messages, and metadata
-Output: Structured analysis of technical achievements and learning moments in JSON format.`)
+Output: Structured analysis of technical achievements and learning moments in JSON format.`
 
 // ContentGenerationPrompt creates tailored content in multiple formats from commit analysis
-var ContentGenerationPrompt = []byte(`You are a skilled technical content creator specializing in developer-focused content. Using the provided commit analysis, generate engaging content in the specified format.
+const ContentGenerationPrompt = `You are a skilled technical content creator specializing in developer-focused content. Using the provided commit analysis, generate engaging content in the specified format.
 
 Content formats to support:
 - Social media posts (Twitter/LinkedIn)
@@ -50,10 +55,10 @@ For each piece of content, ensure:
 5. Proper formatting for target platform
 
 Input: Commit analysis data and desired content format
-Output: Ready-to-publish content in the specified format.`)
+Output: Ready-to-publish content in the specified format.`
 
 // TopicExtractionPrompt identifies trending technologies, patterns, and best practices
-var TopicExtractionPrompt = []byte(`You are a technology trend analyst with deep knowledge of software development patterns and emerging technologies. Analyze the provided changelist to identify trending technologies, development patterns, and best practices.
+const TopicExtractionPrompt = `You are a technology trend analyst with deep knowledge of software development patterns and emerging technologies. Analyze the provided changelist to identify trending technologies, development patterns, and best practices.
 
 Focus on identifying:
 - Programming languages, frameworks, and libraries used
@@ -74,10 +79,10 @@ For each identified topic, provide:
 Consider current technology trends and developer community interests when scoring relevance.
 
 Input: Commit changelist with code changes and metadata
-Output: Ranked list of topics, technologies, and patterns with relevance scores in JSON format.`)
+Output: Ranked list of topics, technologies, and patterns with relevance scores in JSON format.`
 
 // RefinementPrompt improves content based on feedback and engagement metrics
-var RefinementPrompt = []byte(`You are a content optimization specialist focused on developer content performance. Your task is to refine and improve existing content based on feedback, engagement metrics, and best practices.
+const RefinementPrompt = `You are a content optimization specialist focused on developer content performance. Your task is to refine and improve existing content based on feedback, engagement metrics, and best practices.
 
 Optimization areas:
 - Clarity and technical accuracy
@@ -104,10 +109,10 @@ For each refinement, provide:
 Focus on maintaining authenticity while improving effectiveness.
 
 Input: Original content, feedback data, and performance metrics
-Output: Refined content with improvement explanations and alternative versions.`)
+Output: Refined content with improvement explanations and alternative versions.`
 
 // ExportPrompt formats content for various platforms and systems
-var ExportPrompt = []byte(`You are a content formatting specialist responsible for preparing content for export to various platforms and content management systems. Transform the provided content into the specified export format while maintaining quality and platform compatibility.
+const ExportPrompt = `You are a content formatting specialist responsible for preparing content for export to various platforms and content management systems. Transform the provided content into the specified export format while maintaining quality and platform compatibility.
 
 Supported export formats:
 - Markdown for documentation and blogs
@@ -132,4 +137,9 @@ Platform-specific considerations:
 - Portfolios: Visual appeal, project categorization, skill highlighting
 
 Input: Content and target export format specification
-Output: Properly formatted content ready for publication on the specified platform.`)
+Output: Properly formatted content ready for publication on the specified platform.`
+
+// ContentCreationPromptTemplate creates a dynamic prompt for content generation
+func GetContentCreationPrompt(format, topic string) string {
+	return fmt.Sprintf("Create a %s about %s", strings.ToLower(format), topic)
+}
