@@ -162,13 +162,11 @@ func (m *AppModel) handleNext() (tea.Model, tea.Cmd) {
 		commits, selectedCommits := m.listingModel.GetSelectedCommits()
 		m.selectedCommits = selectedCommits
 		
-		if err := m.topicModel.ExtractTopics(commits, selectedCommits); err != nil {
-			m.errorMsg = err.Error()
-			return m, nil
-		}
+		// Start async topic extraction
+		cmd := m.topicModel.ExtractTopics(commits, selectedCommits)
 		
 		m.currentView = TopicSelectionView
-		return m, m.topicModel.Init()
+		return m, cmd
 		
 	case TopicSelectionView:
 		// Get selected topic and move to format selection
