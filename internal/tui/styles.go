@@ -46,6 +46,10 @@ var (
 	subtitleStyle = lipgloss.NewStyle().
 			Foreground(textSecondary).
 			Italic(true)
+	
+	dimStyle = lipgloss.NewStyle().
+			Foreground(textMuted).
+			Italic(true)
 )
 
 // Commit row styles

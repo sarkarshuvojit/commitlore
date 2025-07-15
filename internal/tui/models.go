@@ -9,7 +9,8 @@ import (
 type ViewState int
 
 const (
-	ListingView ViewState = iota
+	SplashView ViewState = iota
+	ListingView
 	TopicSelectionView
 	FormatSelectionView
 	ContentCreationView
@@ -29,6 +30,7 @@ type AppModel struct {
 	currentView ViewState
 	
 	// Individual view models
+	splashModel    *SplashModel
 	listingModel   *ListingModel
 	topicModel     *TopicModel
 	formatModel    *FormatModel
@@ -47,6 +49,7 @@ type (
 	ErrorMsg       struct{ Error string }
 	SelectionMsg   struct{ Selection interface{} }
 	flashTimerMsg  struct{}
+	splashTimerMsg struct{}
 )
 
 // ViewInterface defines the common interface for all view models

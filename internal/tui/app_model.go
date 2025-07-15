@@ -74,11 +74,12 @@ func NewAppModel() *AppModel {
 	
 	app := &AppModel{
 		BaseModel:       baseModel,
-		currentView:     ListingView,
+		currentView:     SplashView,
 		selectedCommits: make(map[int]bool),
 	}
 	
 	// Initialize sub-models
+	app.splashModel = NewSplashModel(baseModel)
 	app.listingModel = NewListingModel(baseModel)
 	app.topicModel = NewTopicModel(baseModel)
 	app.formatModel = NewFormatModel(baseModel)
@@ -121,6 +122,8 @@ func (m *AppModel) View() string {
 
 func (m *AppModel) getCurrentModel() ViewInterface {
 	switch m.currentView {
+	case SplashView:
+		return m.splashModel
 	case ListingView:
 		return m.listingModel
 	case TopicSelectionView:
@@ -130,12 +133,14 @@ func (m *AppModel) getCurrentModel() ViewInterface {
 	case ContentCreationView:
 		return m.contentModel
 	default:
-		return m.listingModel
+		return m.splashModel
 	}
 }
 
 func (m *AppModel) setCurrentModel(model tea.Model) {
 	switch m.currentView {
+	case SplashView:
+		m.splashModel = model.(*SplashModel)
 	case ListingView:
 		m.listingModel = model.(*ListingModel)
 	case TopicSelectionView:
@@ -149,6 +154,9 @@ func (m *AppModel) setCurrentModel(model tea.Model) {
 
 func (m *AppModel) handleNext() (tea.Model, tea.Cmd) {
 	switch m.currentView {
+	case SplashView:
+		m.currentView = ListingView
+		return m, m.listingModel.Init()
 	case ListingView:
 		// Get selected commits and extract topics
 		commits, selectedCommits := m.listingModel.GetSelectedCommits()
@@ -182,6 +190,9 @@ func (m *AppModel) handleNext() (tea.Model, tea.Cmd) {
 
 func (m *AppModel) handleBack() (tea.Model, tea.Cmd) {
 	switch m.currentView {
+	case ListingView:
+		m.currentView = SplashView
+		return m, m.splashModel.Init()
 	case TopicSelectionView:
 		m.currentView = ListingView
 		return m, m.listingModel.Init()
@@ -191,10 +202,12 @@ func (m *AppModel) handleBack() (tea.Model, tea.Cmd) {
 	case ContentCreationView:
 		m.currentView = FormatSelectionView
 		return m, m.formatModel.Init()
-	case ListingView:
+	case SplashView:
 		// Clear selections
 		m.selectedCommits = make(map[int]bool)
-		m.listingModel.selectedCommits = make(map[int]bool)
+		if m.listingModel != nil {
+			m.listingModel.selectedCommits = make(map[int]bool)
+		}
 		return m, nil
 	}
 	
