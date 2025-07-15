@@ -1,13 +1,21 @@
 package tui
 
 import (
+	"context"
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sarkarshuvojit/commitlore/internal/core"
 	"github.com/sarkarshuvojit/commitlore/internal/core/llm"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// ContentGeneratedMsg represents a message sent when content generation is complete
+type ContentGeneratedMsg struct {
+	Content string
+	Error   string
+}
 
 // ContentModel handles the content creation view
 type ContentModel struct {
@@ -17,6 +25,7 @@ type ContentModel struct {
 	promptText       string
 	generatedContent string
 	isEditingPrompt  bool
+	isGenerating     bool
 }
 
 // NewContentModel creates a new content model
@@ -26,6 +35,7 @@ func NewContentModel(base BaseModel) *ContentModel {
 		promptText:       "",
 		generatedContent: "",
 		isEditingPrompt:  true,
+		isGenerating:     false,
 	}
 }
 
@@ -35,14 +45,31 @@ func (m *ContentModel) Init() tea.Cmd {
 
 func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ContentGeneratedMsg:
+		m.isGenerating = false
+		if msg.Error != "" {
+			m.errorMsg = msg.Error
+			m.generatedContent = ""
+		} else {
+			m.errorMsg = ""
+			m.generatedContent = msg.Content
+		}
+		return m, nil
 	case tea.KeyMsg:
+		// Don't allow input while generating content
+		if m.isGenerating {
+			return m, nil
+		}
+		
 		switch msg.String() {
 		case "backspace":
 			if m.isEditingPrompt && len(m.promptText) > 0 {
 				m.promptText = m.promptText[:len(m.promptText)-1]
 			}
-		case "ctrl+enter":
-			if m.promptText != "" {
+		case "enter", "shift+enter":
+			if m.promptText != "" && !m.isGenerating {
+				m.isGenerating = true
+				m.errorMsg = ""
 				return m.generateContent()
 			}
 		case "escape":
@@ -84,7 +111,11 @@ func (m *ContentModel) View() string {
 	contentTitle := subjectStyle.Render("📄 Generated Content")
 	contentText := m.generatedContent
 	if contentText == "" {
-		contentText = "Generated content will appear here after you provide instructions..."
+		if m.isGenerating {
+			contentText = "🤖 Generating content with AI... Please wait..."
+		} else {
+			contentText = "Generated content will appear here after you provide instructions..."
+		}
 	}
 	
 	contentBox := commitRowStyle.
@@ -97,12 +128,19 @@ func (m *ContentModel) View() string {
 	
 	content := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
 	
-	typeHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("type"), helpDescStyle.Render("edit prompt"))
-	generateHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("ctrl+enter"), helpDescStyle.Render("generate"))
-	backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
-	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
-	
-	helpText := lipgloss.JoinHorizontal(lipgloss.Left, typeHelp, " • ", generateHelp, " • ", backHelp, " • ", quitHelp)
+	var helpText string
+	if m.isGenerating {
+		generatingHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("⏳"), helpDescStyle.Render("generating content..."))
+		backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
+		quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
+		helpText = lipgloss.JoinHorizontal(lipgloss.Left, generatingHelp, " • ", backHelp, " • ", quitHelp)
+	} else {
+		typeHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("type"), helpDescStyle.Render("edit prompt"))
+		generateHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("enter"), helpDescStyle.Render("generate"))
+		backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
+		quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
+		helpText = lipgloss.JoinHorizontal(lipgloss.Left, typeHelp, " • ", generateHelp, " • ", backHelp, " • ", quitHelp)
+	}
 	statusBar := statusBarStyle.Render(helpText)
 	
 	main := lipgloss.JoinVertical(lipgloss.Left, headerWithBg, content, statusBar)
@@ -118,68 +156,68 @@ func (m *ContentModel) SetContext(topic, format string) {
 }
 
 func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
-	content := ""
+	logger := core.GetLogger()
+	logger.Info("Starting content generation", 
+		"topic", m.selectedTopic,
+		"format", m.selectedFormat,
+		"prompt_length", len(m.promptText))
 	
-	switch m.selectedFormat {
-	case "Blog Article":
-		content = fmt.Sprintf(`# %s
-
-## Introduction
-
-In this article, we'll explore the implementation details and lessons learned from recent development work on %s.
-
-## Key Insights
-
-- Understanding the core concepts and patterns
-- Implementation challenges and solutions
-- Best practices and recommendations
-
-## Technical Details
-
-The implementation involved several key components:
-
-1. **Architecture Design**: Careful consideration of the overall system structure
-2. **Error Handling**: Robust error management strategies
-3. **Performance**: Optimization techniques and considerations
-
-## Conclusion
-
-Working on %s provided valuable insights into modern development practices and helped reinforce important software engineering principles.
-
----
-
-*Generated based on: %s*`, 
-			m.selectedTopic, 
-			strings.ToLower(m.selectedTopic), 
-			strings.ToLower(m.selectedTopic),
-			m.promptText)
-			
-	case "Twitter Thread":
-		content = fmt.Sprintf(`🧵 Thread: %s
-
-1/5 Just finished working on %s and wanted to share some key insights! 
-
-2/5 The main challenge was understanding how to properly implement the core patterns while maintaining code quality.
-
-3/5 Key takeaways:
-• Clean architecture really matters
-• Error handling saves you time later
-• Testing early prevents headaches
-
-4/5 The implementation taught me valuable lessons about software design and helped me understand why certain patterns exist.
-
-5/5 Overall, working on %s was a great learning experience that reinforced important development principles. What are your thoughts on this approach?
-
-#SoftwareDevelopment #Coding #TechLearning
-
----
-Generated based on: %s`, 
-			m.selectedTopic,
-			strings.ToLower(m.selectedTopic),
-			strings.ToLower(m.selectedTopic),
-			m.promptText)
+	if m.llmProvider == nil {
+		m.errorMsg = "LLM provider not configured"
+		logger.Error("LLM provider not configured for content generation")
+		return m, nil
 	}
 	
-	m.generatedContent = content
-	return m, nil
+	m.generatedContent = ""
+	
+	return m, tea.Cmd(func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		
+		logger.Info("Calling LLM provider for content generation")
+		
+		// Get the appropriate system prompt based on format
+		var systemPrompt string
+		switch m.selectedFormat {
+		case "Twitter Thread":
+			systemPrompt = llm.TwitterThreadPrompt
+		case "Blog Article":
+			systemPrompt = llm.BlogPostPrompt
+		case "LinkedIn Post":
+			systemPrompt = llm.LinkedInPostPrompt
+		default:
+			systemPrompt = llm.ContentGenerationPrompt
+		}
+		
+		// Use the user's prompt text as the user prompt
+		userPrompt := fmt.Sprintf(`Create %s content about: %s
+
+Please ensure the content is:
+- Technically accurate and up-to-date
+- Engaging and valuable to developers
+- Properly formatted for the target platform
+- Includes relevant code examples where applicable
+- Optimized for engagement and sharing
+
+Additional instructions: %s`, m.selectedFormat, m.selectedTopic, m.promptText)
+		
+		content, err := m.llmProvider.GenerateContentWithSystemPrompt(ctx, systemPrompt, userPrompt)
+		if err != nil {
+			logger.Error("Failed to generate content", "error", err)
+			return ContentGeneratedMsg{
+				Content: "",
+				Error:   fmt.Sprintf("Failed to generate content: %v", err),
+			}
+		}
+		
+		logger.Info("Content generated successfully", 
+			"content_length", len(content),
+			"topic", m.selectedTopic,
+			"format", m.selectedFormat)
+		
+		return ContentGeneratedMsg{
+			Content: content,
+			Error:   "",
+		}
+	})
 }

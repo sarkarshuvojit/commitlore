@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	
+	"github.com/sarkarshuvojit/commitlore/internal/core"
 )
 
 // ExtractTopics analyzes changesets and extracts relevant topics for content creation
@@ -77,9 +79,13 @@ func parseTopicsFromResponse(response string) []string {
 	rawLines := strings.Split(response, "\n")
 	
 	var topics []string
+	var skippedLines int
+	var shortLines int
+	
 	for _, line := range rawLines {
 		line = strings.TrimSpace(line)
 		if line == "" {
+			skippedLines++
 			continue
 		}
 		
@@ -89,8 +95,16 @@ func parseTopicsFromResponse(response string) []string {
 		
 		if line != "" && len(line) > 10 { // Filter out very short lines
 			topics = append(topics, line)
+		} else {
+			shortLines++
 		}
 	}
+	
+	logger := core.GetLogger()
+	logger.Debug("Completed topic parsing", 
+		"parsed_topics", len(topics),
+		"skipped_empty_lines", skippedLines,
+		"skipped_short_lines", shortLines)
 	
 	return topics
 }
