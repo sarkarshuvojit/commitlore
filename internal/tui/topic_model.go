@@ -210,28 +210,59 @@ func (m *TopicModel) ExtractTopics(commits []core.Commit, selectedCommits map[in
 		}
 	}
 
-	// Build prompt for topic extraction
+	// Build comprehensive changelist data for topic extraction
 	var commitDetails []string
 	for index := range selectedCommits {
 		if index < len(commits) {
 			commit := commits[index]
-			detail := fmt.Sprintf("- %s: %s", commit.Hash[:8], commit.Subject)
+			
+			// Get changelist data for this commit
+			changeset, err := core.GetChangesForCommit(m.repoPath, commit.Hash)
+			if err != nil {
+				logger.Error("Failed to get changeset for commit", "hash", commit.Hash, "error", err)
+				// Fall back to basic commit info
+				detail := fmt.Sprintf("- %s: %s", commit.Hash[:8], commit.Subject)
+				commitDetails = append(commitDetails, detail)
+				continue
+			}
+
+			// Create detailed commit information with changelist
+			detail := fmt.Sprintf(`Commit: %s
+Author: %s
+Date: %s  
+Subject: %s
+Body: %s
+Files Changed: %s
+Diff:
+%s
+
+---`, 
+				commit.Hash[:8], 
+				changeset.Author, 
+				changeset.Date.Format("2006-01-02 15:04:05"),
+				changeset.Subject,
+				changeset.Body,
+				strings.Join(changeset.Files, ", "),
+				changeset.Diff)
+			
 			commitDetails = append(commitDetails, detail)
 		}
 	}
 
-	systemPrompt := `You are a developer story assistant. Your task is to analyze commit messages and extract meaningful topics that could be used for creating developer content like blog posts, social media posts, or technical articles.
+	systemPrompt := `You are a developer story assistant. Your task is to analyze commit changesets including diffs and extract meaningful topics that could be used for creating developer content like blog posts, social media posts, or technical articles.
 
-Analyze the provided commits and extract 3-5 relevant topics that would be interesting for developer content creation. Focus on:
-- Technical concepts and implementations
-- Problem-solving approaches
-- Development practices and patterns
+Analyze the provided commits with their full changesets and extract 3-5 relevant topics that would be interesting for developer content creation. Focus on:
+- Technical concepts and implementations revealed in the code changes
+- Problem-solving approaches shown in the diffs
+- Development practices and patterns demonstrated
 - Technology stack and tools used
 - Performance improvements or optimizations
+- Architectural decisions and refactoring patterns
+- Bug fixes and their underlying issues
 
 Return only the topics as a comma-separated list, with no additional text or explanations.`
 
-	userPrompt := fmt.Sprintf(`Analyze these commits and extract meaningful topics for content creation:
+	userPrompt := fmt.Sprintf(`Analyze these commits with their full changesets and extract meaningful topics for content creation:
 
 %s
 

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/sarkarshuvojit/commitlore/internal/core"
 	"github.com/sarkarshuvojit/commitlore/internal/core/llm"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // ContentGeneratedMsg represents a message sent when content generation is complete
@@ -34,18 +34,20 @@ type ContentModel struct {
 	viewport         viewport.Model
 	showFinalOutput  bool
 	asyncWrapper     *llm.AsyncLLMWrapper
+	commits          []core.Commit
+	selectedCommits  map[int]bool
 }
 
 // NewContentModel creates a new content model
 func NewContentModel(base BaseModel) *ContentModel {
 	vp := viewport.New(80, 20)
-	
+
 	// Create async wrapper with 60 second timeout
 	var asyncWrapper *llm.AsyncLLMWrapper
 	if base.llmProvider != nil {
 		asyncWrapper = llm.NewAsyncLLMWrapper(base.llmProvider, 60*time.Second)
 	}
-	
+
 	return &ContentModel{
 		BaseModel:        base,
 		promptText:       "",
@@ -111,7 +113,7 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.isGenerating {
 			return m, nil
 		}
-		
+
 		switch msg.String() {
 		case "backspace":
 			if m.isEditingPrompt && len(m.promptText) > 0 {
@@ -221,24 +223,35 @@ func (m *ContentModel) SetContext(topic, format string) {
 	m.showFinalOutput = false
 }
 
+// SetContextWithCommits sets the topic, format, and commit data for content generation
+func (m *ContentModel) SetContextWithCommits(topic, format string, commits []core.Commit, selectedCommits map[int]bool) {
+	m.selectedTopic = topic
+	m.selectedFormat = format
+	m.promptText = ""
+	m.isEditingPrompt = true
+	m.showFinalOutput = false
+	m.commits = commits
+	m.selectedCommits = selectedCommits
+}
+
 func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
 	logger := core.GetLogger()
-	logger.Info("Starting content generation", 
+	logger.Info("Starting content generation",
 		"topic", m.selectedTopic,
 		"format", m.selectedFormat,
 		"prompt_length", len(m.promptText))
-	
+
 	if m.asyncWrapper == nil {
 		m.errorMsg = "LLM provider not configured"
 		logger.Error("LLM provider not configured for content generation")
 		return m, nil
 	}
-	
+
 	m.generatedContent = ""
-	
+
 	// Create channel for async response
 	responseChan := llm.CreateLLMResponseChannel()
-	
+
 	// Get the appropriate system prompt based on format
 	var systemPrompt string
 	switch m.selectedFormat {
@@ -251,8 +264,51 @@ func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
 	default:
 		systemPrompt = llm.ContentGenerationPrompt
 	}
-	
-	// Use the user's prompt text as the user prompt
+
+	// Build comprehensive changelist data for content generation
+	var changelistData string
+	if m.selectedCommits != nil && len(m.selectedCommits) > 0 {
+		var commitDetails []string
+		for index := range m.selectedCommits {
+			if index < len(m.commits) {
+				commit := m.commits[index]
+				
+				// Get changelist data for this commit
+				changeset, err := core.GetChangesForCommit(m.repoPath, commit.Hash)
+				if err != nil {
+					logger.Error("Failed to get changeset for commit", "hash", commit.Hash, "error", err)
+					// Fall back to basic commit info
+					detail := fmt.Sprintf("- %s: %s", commit.Hash[:8], commit.Subject)
+					commitDetails = append(commitDetails, detail)
+					continue
+				}
+
+				// Create detailed commit information with changelist
+				detail := fmt.Sprintf(`Commit: %s
+Author: %s
+Date: %s  
+Subject: %s
+Body: %s
+Files Changed: %s
+Diff:
+%s
+
+---`, 
+					commit.Hash[:8], 
+					changeset.Author, 
+					changeset.Date.Format("2006-01-02 15:04:05"),
+					changeset.Subject,
+					changeset.Body,
+					strings.Join(changeset.Files, ", "),
+					changeset.Diff)
+				
+				commitDetails = append(commitDetails, detail)
+			}
+		}
+		changelistData = strings.Join(commitDetails, "\n")
+	}
+
+	// Use the user's prompt text as the user prompt, including changelist data
 	userPrompt := fmt.Sprintf(`Create %s content about: %s
 
 Please ensure the content is:
@@ -261,15 +317,20 @@ Please ensure the content is:
 - Properly formatted for the target platform
 - Includes relevant code examples where applicable
 - Optimized for engagement and sharing
+- Instead of being generic, tries to actively target the content based on the actual code changes shown below
 
-Additional user instructions: %s`, m.selectedFormat, m.selectedTopic, m.promptText)
-	
+Additional user instructions: %s
+
+Based on the following commit changesets from the selected commits:
+
+%s`, m.selectedFormat, m.selectedTopic, m.promptText, changelistData)
+
 	// Start async LLM call
 	ctx := context.Background()
 	m.asyncWrapper.GenerateContentWithSystemPromptAsync(ctx, systemPrompt, userPrompt, responseChan)
-	
+
 	logger.Info("Started async LLM call for content generation")
-	
+
 	// Return command to wait for response
 	return m, llm.WaitForLLMResponse(responseChan)
 }
@@ -277,27 +338,27 @@ Additional user instructions: %s`, m.selectedFormat, m.selectedTopic, m.promptTe
 // renderFinalOutput renders the final output view with scrollable viewport
 func (m *ContentModel) renderFinalOutput(headerWithBg string) string {
 	contentTitle := subjectStyle.Render("📄 Generated Content")
-	
+
 	// Update viewport dimensions
 	m.viewport.Width = 96
 	m.viewport.Height = 15
-	
+
 	viewportContent := commitRowStyle.
 		Width(96).
 		Height(15).
 		Padding(1).
 		Render(m.viewport.View())
-	
+
 	content := lipgloss.JoinVertical(lipgloss.Left, contentTitle, viewportContent)
-	
+
 	saveHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("S"), helpDescStyle.Render("save to file"))
 	scrollHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("↑↓"), helpDescStyle.Render("scroll"))
 	backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
 	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
 	helpText := lipgloss.JoinHorizontal(lipgloss.Left, saveHelp, " • ", scrollHelp, " • ", backHelp, " • ", quitHelp)
-	
+
 	statusBar := statusBarStyle.Render(helpText)
-	
+
 	main := lipgloss.JoinVertical(lipgloss.Left, headerWithBg, content, statusBar)
 	return appStyle.Render(main)
 }
@@ -309,7 +370,7 @@ func (m *ContentModel) saveContent() tea.Cmd {
 		topic := m.sanitizeFilename(m.selectedTopic)
 		format := m.sanitizeFilename(m.selectedFormat)
 		filename := fmt.Sprintf("%s_%s.txt", topic, format)
-		
+
 		// Get current directory
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -317,10 +378,10 @@ func (m *ContentModel) saveContent() tea.Cmd {
 				Error: fmt.Sprintf("Failed to get current directory: %v", err),
 			}
 		}
-		
+
 		// Create full path
 		fullPath := filepath.Join(cwd, filename)
-		
+
 		// Write content to file
 		err = os.WriteFile(fullPath, []byte(m.generatedContent), 0644)
 		if err != nil {
@@ -328,7 +389,7 @@ func (m *ContentModel) saveContent() tea.Cmd {
 				Error: fmt.Sprintf("Failed to save file: %v", err),
 			}
 		}
-		
+
 		// Return success message (we'll handle this in the Update method)
 		return ContentGeneratedMsg{
 			Content: fmt.Sprintf("✅ Content saved to: %s", fullPath),
@@ -341,13 +402,13 @@ func (m *ContentModel) saveContent() tea.Cmd {
 func (m *ContentModel) sanitizeFilename(filename string) string {
 	// Replace spaces with underscores
 	filename = strings.ReplaceAll(filename, " ", "_")
-	
+
 	// Remove invalid characters
 	reg := regexp.MustCompile(`[<>:"/\\|?*]`)
 	filename = reg.ReplaceAllString(filename, "")
-	
+
 	// Convert to lowercase
 	filename = strings.ToLower(filename)
-	
+
 	return filename
 }

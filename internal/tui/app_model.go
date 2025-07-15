@@ -178,7 +178,8 @@ func (m *AppModel) handleNext() (tea.Model, tea.Cmd) {
 	case FormatSelectionView:
 		// Get selected format and move to content creation
 		m.selectedFormat = m.formatModel.GetSelectedFormat()
-		m.contentModel.SetContext(m.selectedTopic, m.selectedFormat)
+		commits, selectedCommits := m.listingModel.GetSelectedCommits()
+		m.contentModel.SetContextWithCommits(m.selectedTopic, m.selectedFormat, commits, selectedCommits)
 		m.currentView = ContentCreationView
 		return m, m.contentModel.Init()
 	}
