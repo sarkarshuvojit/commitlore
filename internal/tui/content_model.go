@@ -3,8 +3,13 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/sarkarshuvojit/commitlore/internal/core"
 	"github.com/sarkarshuvojit/commitlore/internal/core/llm"
@@ -26,16 +31,21 @@ type ContentModel struct {
 	generatedContent string
 	isEditingPrompt  bool
 	isGenerating     bool
+	viewport         viewport.Model
+	showFinalOutput  bool
 }
 
 // NewContentModel creates a new content model
 func NewContentModel(base BaseModel) *ContentModel {
+	vp := viewport.New(80, 20)
 	return &ContentModel{
 		BaseModel:        base,
 		promptText:       "",
 		generatedContent: "",
 		isEditingPrompt:  true,
 		isGenerating:     false,
+		viewport:         vp,
+		showFinalOutput:  false,
 	}
 }
 
@@ -49,10 +59,21 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.isGenerating = false
 		if msg.Error != "" {
 			m.errorMsg = msg.Error
-			m.generatedContent = ""
+			if !m.showFinalOutput {
+				m.generatedContent = ""
+			}
 		} else {
 			m.errorMsg = ""
-			m.generatedContent = msg.Content
+			// If this is a save success message, show it as status
+			if m.showFinalOutput && msg.Content != m.generatedContent {
+				// This is a save success message, show it briefly
+				m.errorMsg = msg.Content
+			} else {
+				// This is generated content
+				m.generatedContent = msg.Content
+				m.showFinalOutput = true
+				m.viewport.SetContent(msg.Content)
+			}
 		}
 		return m, nil
 	case tea.KeyMsg:
@@ -73,9 +94,19 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.generateContent()
 			}
 		case "escape":
-			return m, func() tea.Msg { return BackMsg{} }
+			if m.showFinalOutput {
+				m.showFinalOutput = false
+			} else {
+				return m, func() tea.Msg { return BackMsg{} }
+			}
+		case "s", "S":
+			if m.showFinalOutput && m.generatedContent != "" {
+				return m, m.saveContent()
+			}
 		default:
-			if m.isEditingPrompt && len(msg.String()) == 1 {
+			if m.showFinalOutput {
+				m.viewport, _ = m.viewport.Update(msg)
+			} else if m.isEditingPrompt && len(msg.String()) == 1 {
 				m.promptText += msg.String()
 			}
 		}
@@ -89,25 +120,29 @@ func (m *ContentModel) View() string {
 		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit • 'esc' to go back")
 		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, errorContent, helpText))
 	}
-	
+
 	header := titleStyle.Render("✍️ Content Creation")
 	subtitle := subtitleStyle.Render(fmt.Sprintf("Topic: %s • Format: %s", m.selectedTopic, m.selectedFormat))
-	
+
 	headerContent := lipgloss.JoinVertical(lipgloss.Left, header, subtitle)
 	headerWithBg := headerStyle.Width(100).Align(lipgloss.Left).Render(headerContent)
-	
+
+	if m.showFinalOutput {
+		return m.renderFinalOutput(headerWithBg)
+	}
+
 	leftWidth := 48
 	rightWidth := 48
-	
-	promptTitle := subjectStyle.Render("📝 Prompt Instructions")
+
+	promptTitle := subjectStyle.Render("📝 Your Instructions")
 	promptBox := commitRowStyle.
 		Width(leftWidth).
 		Height(10).
 		Padding(1).
 		Render(m.promptText + "█")
-	
+
 	leftPanel := lipgloss.JoinVertical(lipgloss.Left, promptTitle, promptBox)
-	
+
 	contentTitle := subjectStyle.Render("📄 Generated Content")
 	contentText := m.generatedContent
 	if contentText == "" {
@@ -117,17 +152,17 @@ func (m *ContentModel) View() string {
 			contentText = "Generated content will appear here after you provide instructions..."
 		}
 	}
-	
+
 	contentBox := commitRowStyle.
 		Width(rightWidth).
 		Height(10).
 		Padding(1).
 		Render(contentText)
-	
+
 	rightPanel := lipgloss.JoinVertical(lipgloss.Left, contentTitle, contentBox)
-	
+
 	content := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
-	
+
 	var helpText string
 	if m.isGenerating {
 		generatingHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("⏳"), helpDescStyle.Render("generating content..."))
@@ -142,7 +177,7 @@ func (m *ContentModel) View() string {
 		helpText = lipgloss.JoinHorizontal(lipgloss.Left, typeHelp, " • ", generateHelp, " • ", backHelp, " • ", quitHelp)
 	}
 	statusBar := statusBarStyle.Render(helpText)
-	
+
 	main := lipgloss.JoinVertical(lipgloss.Left, headerWithBg, content, statusBar)
 	return appStyle.Render(main)
 }
@@ -151,8 +186,9 @@ func (m *ContentModel) View() string {
 func (m *ContentModel) SetContext(topic, format string) {
 	m.selectedTopic = topic
 	m.selectedFormat = format
-	m.promptText = llm.GetContentCreationPrompt(format, topic)
+	m.promptText = ""
 	m.isEditingPrompt = true
+	m.showFinalOutput = false
 }
 
 func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
@@ -199,7 +235,7 @@ Please ensure the content is:
 - Includes relevant code examples where applicable
 - Optimized for engagement and sharing
 
-Additional instructions: %s`, m.selectedFormat, m.selectedTopic, m.promptText)
+Additional user instructions: %s`, m.selectedFormat, m.selectedTopic, m.promptText)
 		
 		content, err := m.llmProvider.GenerateContentWithSystemPrompt(ctx, systemPrompt, userPrompt)
 		if err != nil {
@@ -220,4 +256,82 @@ Additional instructions: %s`, m.selectedFormat, m.selectedTopic, m.promptText)
 			Error:   "",
 		}
 	})
+}
+
+// renderFinalOutput renders the final output view with scrollable viewport
+func (m *ContentModel) renderFinalOutput(headerWithBg string) string {
+	contentTitle := subjectStyle.Render("📄 Generated Content")
+	
+	// Update viewport dimensions
+	m.viewport.Width = 96
+	m.viewport.Height = 15
+	
+	viewportContent := commitRowStyle.
+		Width(96).
+		Height(15).
+		Padding(1).
+		Render(m.viewport.View())
+	
+	content := lipgloss.JoinVertical(lipgloss.Left, contentTitle, viewportContent)
+	
+	saveHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("S"), helpDescStyle.Render("save to file"))
+	scrollHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("↑↓"), helpDescStyle.Render("scroll"))
+	backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
+	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
+	helpText := lipgloss.JoinHorizontal(lipgloss.Left, saveHelp, " • ", scrollHelp, " • ", backHelp, " • ", quitHelp)
+	
+	statusBar := statusBarStyle.Render(helpText)
+	
+	main := lipgloss.JoinVertical(lipgloss.Left, headerWithBg, content, statusBar)
+	return appStyle.Render(main)
+}
+
+// saveContent saves the generated content to a file
+func (m *ContentModel) saveContent() tea.Cmd {
+	return func() tea.Msg {
+		// Generate filename based on topic and format
+		topic := m.sanitizeFilename(m.selectedTopic)
+		format := m.sanitizeFilename(m.selectedFormat)
+		filename := fmt.Sprintf("%s_%s.txt", topic, format)
+		
+		// Get current directory
+		cwd, err := os.Getwd()
+		if err != nil {
+			return ContentGeneratedMsg{
+				Error: fmt.Sprintf("Failed to get current directory: %v", err),
+			}
+		}
+		
+		// Create full path
+		fullPath := filepath.Join(cwd, filename)
+		
+		// Write content to file
+		err = os.WriteFile(fullPath, []byte(m.generatedContent), 0644)
+		if err != nil {
+			return ContentGeneratedMsg{
+				Error: fmt.Sprintf("Failed to save file: %v", err),
+			}
+		}
+		
+		// Return success message (we'll handle this in the Update method)
+		return ContentGeneratedMsg{
+			Content: fmt.Sprintf("✅ Content saved to: %s", fullPath),
+			Error:   "",
+		}
+	}
+}
+
+// sanitizeFilename removes invalid characters from filename
+func (m *ContentModel) sanitizeFilename(filename string) string {
+	// Replace spaces with underscores
+	filename = strings.ReplaceAll(filename, " ", "_")
+	
+	// Remove invalid characters
+	reg := regexp.MustCompile(`[<>:"/\\|?*]`)
+	filename = reg.ReplaceAllString(filename, "")
+	
+	// Convert to lowercase
+	filename = strings.ToLower(filename)
+	
+	return filename
 }
