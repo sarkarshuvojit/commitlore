@@ -21,12 +21,12 @@ type LLMResponseMsg struct {
 
 // AsyncLLMWrapper wraps LLM calls to run them asynchronously with channels
 type AsyncLLMWrapper struct {
-	provider Provider
+	provider LLMProvider
 	timeout  time.Duration
 }
 
 // NewAsyncLLMWrapper creates a new async LLM wrapper
-func NewAsyncLLMWrapper(provider Provider, timeout time.Duration) *AsyncLLMWrapper {
+func NewAsyncLLMWrapper(provider LLMProvider, timeout time.Duration) *AsyncLLMWrapper {
 	if timeout == 0 {
 		timeout = 30 * time.Second // Default timeout
 	}
