@@ -1,143 +1,290 @@
-# CommitLore
+# CommitLore 🔮
 
-**Transform Your Git History Into Compelling Developer Stories**
+> Transform your Git history into compelling developer stories
 
-CommitLore is an AI-powered content generation platform that transforms developers' GitHub commit histories into engaging social media content, blog posts, and technical narratives. By analyzing code evolution patterns and development workflows, CommitLore helps developers showcase their expertise and share knowledge with the broader community.
+CommitLore is an open-source TUI (Terminal User Interface) tool that analyzes your Git commit history and transforms it into engaging content. Turn your development journey into blog posts, social media content, technical narratives, and documentation—all powered by your actual code contributions.
 
-## 🎯 Product Overview
+## ✨ Why CommitLore?
 
-CommitLore bridges the gap between development work and developer marketing by automatically generating content from actual code contributions. The platform analyzes commit patterns, code changes, and project evolution to create authentic technical content that resonates with developer audiences.
+Every commit tells a story. CommitLore helps developers:
+- **Showcase expertise** through authentic technical content
+- **Build personal brand** with content rooted in real work
+- **Document learning journeys** and technical decisions
+- **Create portfolio content** that demonstrates growth
+- **Share knowledge** with the developer community
 
-### Key Features
+## 🚀 Key Features
 
-- **Commit Analysis Engine**: Advanced parsing of Git history to identify key learning moments and technical achievements
-- **Multi-Format Content Generation**: Creates social media posts, blog articles, technical tutorials, and portfolio content
-- **Intelligent Topic Extraction**: Identifies trending technologies, patterns, and best practices from commit data
-- **Iterative Refinement**: Feedback-driven content improvement for maximum engagement
-- **Export Pipeline**: Seamless export to markdown, various social platforms, and content management systems
+- **🔍 Smart Git Analysis**: Parses commit history to identify patterns and insights
+- **🎯 Topic Extraction**: Automatically identifies key technologies and learning moments
+- **📝 Multi-Format Content**: Generates blog posts, social media content, and technical narratives
+- **🎨 Interactive TUI**: Beautiful terminal interface built with Bubble Tea
+- **🔌 BYOL Architecture**: Bring Your Own LLM - works with various AI providers
+- **💾 Export Options**: Save content in multiple formats (Markdown, etc.)
 
-## 🚀 How It Works
+## 🛠 Use Cases
 
-1. **Connect Repository**: Link your GitHub repositories and select commit ranges
-2. **Analysis Phase**: AI analyzes code changes, commit messages, and development patterns
-3. **Content Generation**: Creates tailored content based on identified insights and trends
-4. **Refinement Loop**: Iterative improvement based on user feedback and engagement metrics
-5. **Publication Ready**: Export polished content in multiple formats
+### For Individual Developers
+- **Portfolio Building**: Transform commits into case studies and project showcases
+- **Blog Content**: Generate technical blog posts from development experiences
+- **Social Media**: Create authentic developer content for LinkedIn, Twitter, etc.
+- **Learning Documentation**: Track and share your technical growth journey
 
-## 🎯 Target Market
+### For Tech Leads & Senior Engineers
+- **Architecture Documentation**: Document design decisions and technical choices
+- **Team Knowledge Sharing**: Create content from architectural commits and refactoring
+- **Technical Leadership**: Showcase problem-solving approaches and best practices
 
-### Primary Users
-- **Individual Developers**: Building personal brands and thought leadership
-- **Tech Leads & Senior Engineers**: Sharing architectural decisions and best practices
-- **Developer Advocates**: Creating authentic technical content at scale
-- **Open Source Maintainers**: Showcasing project evolution and community impact
+### For Developer Advocates
+- **Authentic Content**: Create technical content based on real development work
+- **Community Engagement**: Share genuine developer experiences and insights
+- **Tutorial Creation**: Turn feature implementations into step-by-step guides
 
-### Use Cases
-- Personal branding and portfolio enhancement
-- Technical blog content creation
-- Social media engagement for developers
-- Documentation of learning journeys
-- Project retrospectives and case studies
+### For Open Source Maintainers
+- **Project Evolution**: Document how your project has grown and changed
+- **Feature Announcements**: Create content around new features and improvements
+- **Community Updates**: Share progress and milestones with your community
 
-## 💰 Business Model: Token-Based Pricing
+## 🤖 BYOL (Bring Your Own LLM)
 
-### Pricing Strategy
+CommitLore follows a **Bring Your Own LLM** philosophy, giving you the flexibility to choose your preferred AI provider. Connect to various LLM services based on your needs, budget, and preferences.
 
-**Free Tier**
-- 5 commits analyzed per month
-- Basic social media post generation
-- 1 export format
-- Community support
+### Supported LLM Providers
 
-**Starter Plan - $9/month**
-- 100 tokens included
-- Token cost: $0.15 per commit analyzed
-- All content formats
-- Email support
-- API access
+| Provider | Type | Status | Notes |
+|----------|------|---------|-------|
+| **Claude API** | Cloud API | ✅ Supported | Anthropic's Claude via API |
+| **Claude CLI** | Local CLI | ✅ Supported | Official Claude CLI tool |
+| **OpenAI API** | Cloud API | 🔄 Planned | GPT-4, GPT-3.5-turbo |
+| **Ollama** | Local | 🔄 Planned | Local LLM inference |
+| **LM Studio** | Local | 🔄 Planned | Local model management |
+| **Gemini API** | Cloud API | 🔄 Planned | Google's Gemini |
+| **Azure OpenAI** | Cloud API | 🔄 Planned | Enterprise OpenAI |
+| **Hugging Face** | Cloud API | 🔄 Planned | Open model ecosystem |
 
-**Professional Plan - $29/month**
-- 300 tokens included
-- Token cost: $0.12 per commit analyzed
-- Advanced analytics
-- Custom templates
-- Priority support
-- Team collaboration (up to 3 members)
+### LLM Integration Types
 
-**Enterprise Plan - $99/month**
-- 1,000 tokens included
-- Token cost: $0.10 per commit analyzed
-- White-label options
-- Advanced integrations
-- Dedicated support
-- Unlimited team members
+- **🌐 Cloud APIs**: Connect to hosted LLM services (OpenAI, Claude, Gemini)
+- **🖥️ Local Models**: Use local inference engines (Ollama, LM Studio)
+- **⚙️ CLI Tools**: Integrate with command-line AI tools
+- **🔗 Proxy Services**: Connect through LLM gateways and proxies
 
-### Token Economics
+## 🏗 Installation
 
-**Cost Structure (per commit analysis)**
-- Third-party LLM API costs: $0.06
-- Infrastructure & processing: $0.02
-- Customer support & operations: $0.01
-- **Total Cost**: $0.09 per token
+### Prerequisites
 
-**Gross Margins**
-- Free tier: Loss leader for acquisition
-- Starter: 40% gross margin
-- Professional: 47% gross margin  
-- Enterprise: 53% gross margin
+- **Go 1.21+**
+- **Git** (for repository analysis)
+- **Terminal** with TTY support
 
-### Revenue Projections
+### Install from Source
 
-**Year 1 Targets**
-- 500 free users
-- 150 starter plan subscribers
-- 50 professional plan subscribers
-- 10 enterprise customers
+```bash
+# Clone the repository
+git clone https://github.com/sarkarshuvojit/commitlore.git
+cd commitlore
 
-**Monthly Recurring Revenue**: $2,940
-**Annual Revenue**: $35,280
+# Build the binary
+go build -o commitlore main.go
 
-**Year 2 Targets**
-- 2,000 free users
-- 600 starter plan subscribers  
-- 200 professional plan subscribers
-- 40 enterprise customers
+# Run CommitLore
+./commitlore
+```
 
-**Monthly Recurring Revenue**: $13,360
-**Annual Revenue**: $160,320
+### Install with Go
 
-## 🏆 Competitive Advantage
+```bash
+go install github.com/sarkarshuvojit/commitlore@latest
+```
 
-1. **Developer-First Approach**: Built by developers, for developers
-2. **Authentic Content**: Based on real code contributions, not generic templates
-3. **Technical Depth**: Understands code context and technical nuances
-4. **Automation at Scale**: Reduces content creation time from hours to minutes
-5. **Community Integration**: Direct integration with developer platforms and workflows
+## 🎮 Usage
 
-## 🛠 Technology Stack
+### Basic Usage
 
-- **AI/ML**: Integration with OpenAI GPT-4, Anthropic Claude, and Google Gemini APIs
-- **Backend**: Node.js/Python with robust API management
-- **Git Analysis**: Native Git integration and parsing libraries
-- **Export Engine**: Multi-format content generation and templating
-- **Infrastructure**: Cloud-native architecture for scalability
+1. **Navigate to your Git repository**
+   ```bash
+   cd your-project
+   ```
 
-## 📊 Success Metrics
+2. **Launch CommitLore**
+   ```bash
+   commitlore
+   ```
 
-- **User Engagement**: Monthly active users, content generation frequency
-- **Content Quality**: User satisfaction scores, iteration rates
-- **Business Growth**: MRR growth, customer retention, token utilization
-- **Market Penetration**: Developer community adoption, viral coefficient
+3. **Follow the interactive prompts**:
+   - Select commit range for analysis
+   - Choose your LLM provider
+   - Configure content generation preferences
+   - Generate and refine content
 
-## 🎯 Go-to-Market Strategy
+### LLM Provider Setup
 
-1. **Developer Community Engagement**: Open source contributions, conference presence
-2. **Content Marketing**: Technical blog posts, tutorials, and case studies
-3. **Product Hunt Launch**: Generate initial user base and feedback
-4. **Partnership Strategy**: Integrations with popular developer tools
-5. **Freemium Adoption**: Convert free users through value demonstration
+#### Claude API
+```bash
+export CLAUDE_API_KEY="your-api-key-here"
+```
+
+#### Claude CLI
+```bash
+# Install Claude CLI first
+npm install -g @anthropic-ai/claude-cli
+
+# CommitLore will automatically detect the CLI
+```
+
+### Command Line Options
+
+```bash
+# Analyze specific commit range
+commitlore --from=HEAD~10 --to=HEAD
+
+# Use specific LLM provider
+commitlore --llm=claude-api
+
+# Generate specific content type
+commitlore --format=blog-post
+
+# Export to file
+commitlore --output=my-story.md
+```
+
+## 🏛 Architecture
+
+CommitLore is built with a clean, modular architecture:
+
+```
+├── internal/
+│   ├── core/              # Core business logic
+│   │   ├── git.go         # Git repository analysis
+│   │   ├── llm/           # LLM provider interfaces
+│   │   │   ├── interface.go
+│   │   │   ├── claude_api.go
+│   │   │   ├── claude_cli.go
+│   │   │   └── async.go
+│   │   └── logger.go      # Logging utilities
+│   └── tui/               # Terminal UI components
+│       ├── app.go         # Main application
+│       ├── models.go      # Data models
+│       ├── listing_model.go
+│       ├── topic_model.go
+│       ├── content_model.go
+│       └── styles.go      # UI styling
+└── main.go                # Application entry point
+```
+
+### Key Design Principles
+
+- **🔌 Pluggable LLM System**: Easy to add new LLM providers
+- **📱 Responsive TUI**: Clean, keyboard-driven interface
+- **🔄 Async Processing**: Non-blocking LLM operations
+- **🧪 Testable Core**: Business logic separated from UI
+- **⚡ Performance**: Efficient Git analysis and content generation
+
+## 🛠 Development
+
+### Building from Source
+
+```bash
+# Clone and enter directory
+git clone https://github.com/sarkarshuvojit/commitlore.git
+cd commitlore
+
+# Install dependencies
+go mod download
+
+# Run in development mode
+go run main.go
+
+# Build binary
+go build -o commitlore main.go
+```
+
+### Testing
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run specific package tests
+go test ./internal/core/...
+```
+
+### Adding New LLM Providers
+
+1. Implement the `LLMProvider` interface in `internal/core/llm/`
+2. Add configuration options
+3. Update the provider selection logic
+4. Add tests for your implementation
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+### Development Setup
+
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Make your changes**
+4. **Add tests** for new functionality
+5. **Run tests** to ensure everything works
+6. **Submit a pull request**
+
+### Contribution Guidelines
+
+- **Code Quality**: Follow Go best practices and conventions
+- **Testing**: Add tests for new features and bug fixes
+- **Documentation**: Update documentation for new features
+- **Commit Messages**: Use clear, descriptive commit messages
+- **Issue First**: For major changes, open an issue first to discuss
+
+### Areas for Contribution
+
+- **🔌 New LLM Providers**: Add support for additional AI services
+- **🎨 UI Improvements**: Enhance the terminal interface
+- **📝 Content Templates**: Create new content generation templates
+- **🐛 Bug Fixes**: Fix issues and improve stability
+- **📚 Documentation**: Improve docs and examples
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🌟 Support
+
+- **⭐ Star this repo** if you find it useful
+- **🐛 Report issues** on GitHub
+- **💬 Join discussions** in our community
+- **📖 Read the docs** for detailed usage guides
+
+## 🔮 Roadmap
+
+### Near Term (v1.0)
+- [ ] OpenAI API integration
+- [ ] Local LLM support (Ollama)
+- [ ] Enhanced content templates
+- [ ] Export format options
+
+### Medium Term (v2.0)
+- [ ] Web interface
+- [ ] Team collaboration features
+- [ ] Analytics and insights
+- [ ] Custom prompt engineering
+
+### Long Term (v3.0+)
+- [ ] IDE integrations
+- [ ] CI/CD pipeline integration
+- [ ] Enterprise features
+- [ ] Advanced analytics
 
 ---
 
-*CommitLore: Where every commit tells a story worth sharing.*
+**CommitLore** - Where every commit tells a story worth sharing. 🔮✨
+
+*Built with ❤️ by the developer community, for the developer community.*
 
