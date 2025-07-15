@@ -2,6 +2,10 @@
 
 > Transform your Git history into compelling developer stories
 
+[![CommitLore Demo](https://img.youtube.com/vi/HbnYIGFfMDw/0.jpg)](https://youtu.be/HbnYIGFfMDw?si=fbdsaZ63maQtJpQg)
+
+*Watch a quick demo of CommitLore in action!*
+
 CommitLore is an open-source TUI (Terminal User Interface) tool that analyzes your Git commit history and transforms it into engaging content. Turn your development journey into blog posts, social media content, technical narratives, and documentation—all powered by your actual code contributions.
 
 ## ✨ Why CommitLore?
