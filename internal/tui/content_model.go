@@ -22,6 +22,16 @@ type ContentGeneratedMsg struct {
 	Error   string
 }
 
+// TickMsg represents a tick for animation
+type TickMsg struct{}
+
+// Tick command for animation
+func doTick() tea.Cmd {
+	return tea.Tick(time.Millisecond*200, func(t time.Time) tea.Msg {
+		return TickMsg{}
+	})
+}
+
 // ContentModel handles the content creation view
 type ContentModel struct {
 	BaseModel
@@ -36,6 +46,8 @@ type ContentModel struct {
 	asyncWrapper     *llm.AsyncLLMWrapper
 	commits          []core.Commit
 	selectedCommits  map[int]bool
+	generationStartTime time.Time
+	hourglassFrame   int
 }
 
 // NewContentModel creates a new content model
@@ -66,6 +78,12 @@ func (m *ContentModel) Init() tea.Cmd {
 
 func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case TickMsg:
+		if m.isGenerating {
+			m.hourglassFrame = (m.hourglassFrame + 1) % 4
+			return m, doTick()
+		}
+		return m, nil
 	case llm.LLMResponseMsg:
 		m.isGenerating = false
 		if msg.Error != "" {
@@ -120,10 +138,13 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptText = m.promptText[:len(m.promptText)-1]
 			}
 		case "enter", "shift+enter":
-			if m.promptText != "" && !m.isGenerating {
+			if !m.isGenerating {
 				m.isGenerating = true
 				m.errorMsg = ""
-				return m.generateContent()
+				m.generationStartTime = time.Now()
+				m.hourglassFrame = 0
+				model, cmd := m.generateContent()
+				return model, tea.Batch(cmd, doTick())
 			}
 		case "escape":
 			if m.showFinalOutput {
@@ -131,14 +152,16 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				return m, func() tea.Msg { return BackMsg{} }
 			}
-		case "s", "S":
-			if m.showFinalOutput && m.generatedContent != "" {
-				return m, m.saveContent()
-			}
 		default:
 			if m.showFinalOutput {
+				// Handle save command when viewing final output
+				if (msg.String() == "s" || msg.String() == "S") && m.generatedContent != "" {
+					return m, m.saveContent()
+				}
+				// Handle viewport scrolling
 				m.viewport, _ = m.viewport.Update(msg)
 			} else if m.isEditingPrompt && len(msg.String()) == 1 {
+				// Handle text input for prompt editing
 				m.promptText += msg.String()
 			}
 		}
@@ -179,7 +202,9 @@ func (m *ContentModel) View() string {
 	contentText := m.generatedContent
 	if contentText == "" {
 		if m.isGenerating {
-			contentText = "🤖 Generating content with AI... Please wait..."
+			hourglass := m.getHourglassFrame()
+			elapsedTime := m.getElapsedTime()
+			contentText = fmt.Sprintf("🤖 Generating content with AI... %s\n\nTime elapsed: %s", hourglass, elapsedTime)
 		} else {
 			contentText = "Generated content will appear here after you provide instructions..."
 		}
@@ -197,7 +222,9 @@ func (m *ContentModel) View() string {
 
 	var helpText string
 	if m.isGenerating {
-		generatingHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("⏳"), helpDescStyle.Render("generating content..."))
+		hourglass := m.getHourglassFrame()
+		elapsedTime := m.getElapsedTime()
+		generatingHelp := fmt.Sprintf("%s %s (%s)", helpKeyStyle.Render(hourglass), helpDescStyle.Render("generating content..."), elapsedTime)
 		backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
 		quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
 		helpText = lipgloss.JoinHorizontal(lipgloss.Left, generatingHelp, " • ", backHelp, " • ", quitHelp)
@@ -411,4 +438,28 @@ func (m *ContentModel) sanitizeFilename(filename string) string {
 	filename = strings.ToLower(filename)
 
 	return filename
+}
+
+// getHourglassFrame returns the current frame of the hourglass animation
+func (m *ContentModel) getHourglassFrame() string {
+	frames := []string{"⧖", "⧗", "⧑", "⧒"}
+	return frames[m.hourglassFrame]
+}
+
+// getElapsedTime returns human-readable elapsed time
+func (m *ContentModel) getElapsedTime() string {
+	if m.generationStartTime.IsZero() {
+		return ""
+	}
+	elapsed := time.Since(m.generationStartTime)
+	
+	if elapsed < time.Second {
+		return fmt.Sprintf("%.0fms", float64(elapsed.Nanoseconds())/1e6)
+	} else if elapsed < time.Minute {
+		return fmt.Sprintf("%.0fs", elapsed.Seconds())
+	} else {
+		minutes := int(elapsed.Minutes())
+		seconds := int(elapsed.Seconds()) % 60
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
 }

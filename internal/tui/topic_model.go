@@ -20,6 +20,8 @@ type TopicModel struct {
 	selectedTopic string
 	asyncWrapper  *llm.AsyncLLMWrapper
 	isExtracting  bool
+	extractionStartTime time.Time
+	hourglassFrame int
 }
 
 // NewTopicModel creates a new topic model
@@ -45,6 +47,12 @@ func (m *TopicModel) Init() tea.Cmd {
 
 func (m *TopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case TickMsg:
+		if m.isExtracting {
+			m.hourglassFrame = (m.hourglassFrame + 1) % 4
+			return m, doTick()
+		}
+		return m, nil
 	case llm.LLMResponseMsg:
 		m.isExtracting = false
 		if msg.Error != "" {
@@ -102,11 +110,13 @@ func (m *TopicModel) View() string {
 
 	if m.isExtracting {
 		header := titleStyle.Render("📝 Extracting Topics")
-		subtitle := subtitleStyle.Render("🤖 Analyzing commits with AI... Please wait...")
+		hourglass := m.getHourglassFrame()
+		elapsedTime := m.getElapsedTime()
+		subtitle := subtitleStyle.Render(fmt.Sprintf("🤖 Analyzing commits with AI... %s (%s)", hourglass, elapsedTime))
 		headerContent := lipgloss.JoinVertical(lipgloss.Left, header, subtitle)
 		headerWithBg := headerStyle.Width(100).Align(lipgloss.Left).Render(headerContent)
 
-		generatingHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("⏳"), helpDescStyle.Render("extracting topics..."))
+		generatingHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render(hourglass), helpDescStyle.Render("extracting topics..."))
 		quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
 		helpText := lipgloss.JoinHorizontal(lipgloss.Left, generatingHelp, " • ", quitHelp)
 		statusBar := statusBarStyle.Render(helpText)
@@ -198,6 +208,8 @@ func (m *TopicModel) ExtractTopics(commits []core.Commit, selectedCommits map[in
 	m.isExtracting = true
 	m.errorMsg = ""
 	m.topics = []string{}
+	m.extractionStartTime = time.Now()
+	m.hourglassFrame = 0
 
 	// Create channel for async response
 	responseChan := llm.CreateLLMResponseChannel()
@@ -275,5 +287,29 @@ Provide 3-5 topics as a comma-separated list.`, strings.Join(commitDetails, "\n"
 	logger.Info("Started async LLM call for topic extraction")
 
 	// Return command to wait for response
-	return llm.WaitForLLMResponse(responseChan)
+	return tea.Batch(llm.WaitForLLMResponse(responseChan), doTick())
+}
+
+// getHourglassFrame returns the current frame of the hourglass animation
+func (m *TopicModel) getHourglassFrame() string {
+	frames := []string{"⧖", "⧗", "⧑", "⧒"}
+	return frames[m.hourglassFrame]
+}
+
+// getElapsedTime returns human-readable elapsed time
+func (m *TopicModel) getElapsedTime() string {
+	if m.extractionStartTime.IsZero() {
+		return ""
+	}
+	elapsed := time.Since(m.extractionStartTime)
+	
+	if elapsed < time.Second {
+		return fmt.Sprintf("%.0fms", float64(elapsed.Nanoseconds())/1e6)
+	} else if elapsed < time.Minute {
+		return fmt.Sprintf("%.0fs", elapsed.Seconds())
+	} else {
+		minutes := int(elapsed.Minutes())
+		seconds := int(elapsed.Seconds()) % 60
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
 }

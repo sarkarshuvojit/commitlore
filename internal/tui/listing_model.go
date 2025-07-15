@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/sarkarshuvojit/commitlore/internal/core"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // ListingModel handles the commit listing view
@@ -31,7 +31,7 @@ func NewListingModel(base BaseModel) *ListingModel {
 	m := &ListingModel{
 		BaseModel:       base,
 		currentPage:     1,
-		perPage:         20,
+		perPage:         100,
 		cursor:          0,
 		viewport:        0,
 		maxViewport:     8,
@@ -40,7 +40,7 @@ func NewListingModel(base BaseModel) *ListingModel {
 		rangeStart:      -1,
 		flashLimit:      false,
 	}
-	
+
 	m.loadCommits()
 	return m
 }
@@ -106,7 +106,7 @@ func (m *ListingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if start > end {
 					start, end = end, start
 				}
-				
+
 				rangeSize := end - start + 1
 				if len(m.selectedCommits)+rangeSize <= 5 {
 					for i := start; i <= end; i++ {
@@ -146,17 +146,17 @@ func (m *ListingModel) View() string {
 		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit")
 		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, errorContent, helpText))
 	}
-	
+
 	if len(m.commits) == 0 {
 		emptyContent := emptyStyle.Render("📭 No commits found in this repository")
 		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit")
 		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Center, emptyContent, helpText))
 	}
-	
+
 	header := m.renderHeader()
 	content := m.renderCommitList()
 	statusBar := m.renderStatusBar()
-	
+
 	main := lipgloss.JoinVertical(lipgloss.Left, header, content, statusBar)
 	return appStyle.Render(main)
 }
@@ -167,7 +167,7 @@ func (m *ListingModel) loadCommits() {
 		m.errorMsg = fmt.Sprintf("Error loading commits: %v", err)
 		return
 	}
-	
+
 	m.commits = page.Commits
 	m.totalCommits = page.Total
 	m.errorMsg = ""
@@ -176,10 +176,10 @@ func (m *ListingModel) loadCommits() {
 func (m *ListingModel) renderHeader() string {
 	title := titleStyle.Render("✨ CommitLore")
 	subtitle := subtitleStyle.Render(fmt.Sprintf("Page %d • %d commits total", m.currentPage, m.totalCommits))
-	
+
 	headerContent := lipgloss.JoinVertical(lipgloss.Left, title, subtitle)
 	headerWithBg := headerStyle.Width(100).Align(lipgloss.Left).Render(headerContent)
-	
+
 	return headerWithBg
 }
 
@@ -192,19 +192,19 @@ func (m *ListingModel) renderCommitList() string {
 	if start < 0 {
 		start = 0
 	}
-	
+
 	var rows []string
-	
+
 	for i := start; i < end; i++ {
 		commit := m.commits[i]
 		isSelected := i == m.cursor
 		isMultiSelected := m.selectedCommits[i]
 		isInRange := m.selectionMode && ((m.rangeStart <= i && i <= m.cursor) || (m.cursor <= i && i <= m.rangeStart))
-		
+
 		row := m.renderCommitRow(commit, isSelected, isMultiSelected, isInRange)
 		rows = append(rows, row)
 	}
-	
+
 	var scrollIndicators []string
 	if m.viewport > 0 {
 		scrollIndicators = append(scrollIndicators, scrollIndicatorStyle.Render("↑ More above"))
@@ -212,13 +212,13 @@ func (m *ListingModel) renderCommitList() string {
 	if end < len(m.commits) {
 		scrollIndicators = append(scrollIndicators, scrollIndicatorStyle.Render("↓ More below"))
 	}
-	
+
 	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	if len(scrollIndicators) > 0 {
 		indicators := lipgloss.JoinVertical(lipgloss.Right, scrollIndicators...)
 		content = lipgloss.JoinVertical(lipgloss.Left, content, indicators)
 	}
-	
+
 	return contentStyle.Render(content)
 }
 
@@ -227,32 +227,32 @@ func (m *ListingModel) renderCommitRow(commit core.Commit, isSelected bool, isMu
 	if len(subject) > 70 {
 		subject = subject[:67] + "..."
 	}
-	
+
 	author := commit.Author
 	if len(author) > 20 {
 		author = author[:17] + "..."
 	}
-	
+
 	hash := commit.Hash[:7]
 	date := commit.Date.Format("Jan 02, 15:04")
-	
+
 	cursor := "  "
 	selectionIndicator := ""
-	
+
 	if isSelected {
 		cursor = "▶ "
 	}
-	
+
 	if isMultiSelected {
 		selectionIndicator = "✓ "
 	} else if isInRange {
 		selectionIndicator = "~ "
 	}
-	
+
 	var style lipgloss.Style
 	var hashText, subjectText, authorText, dateText string
 	var needsFullWidth bool
-	
+
 	if isSelected {
 		style = selectedCommitRowStyle
 		needsFullWidth = true
@@ -282,16 +282,16 @@ func (m *ListingModel) renderCommitRow(commit core.Commit, isSelected bool, isMu
 		authorText = authorStyle.Render(author)
 		dateText = dateStyle.Render(date)
 	}
-	
+
 	firstLine := fmt.Sprintf("%s%s%s %s", cursor, selectionIndicator, hashText, subjectText)
 	secondLine := fmt.Sprintf("  %s • %s", authorText, dateText)
-	
+
 	rowContent := lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
-	
+
 	if needsFullWidth {
 		return style.Width(96).Align(lipgloss.Left).Render(rowContent)
 	}
-	
+
 	return style.Render(rowContent)
 }
 
@@ -299,7 +299,7 @@ func (m *ListingModel) calculateTokensForSelection() int {
 	if len(m.selectedCommits) == 0 {
 		return 0
 	}
-	
+
 	totalTokens := 0
 	for index := range m.selectedCommits {
 		if index < len(m.commits) {
@@ -311,7 +311,7 @@ func (m *ListingModel) calculateTokensForSelection() int {
 			}
 		}
 	}
-	
+
 	return totalTokens
 }
 
@@ -322,7 +322,7 @@ func (m *ListingModel) renderStatusBar() string {
 	nextHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("N"), helpDescStyle.Render("next"))
 	clearHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("clear"))
 	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
-	
+
 	selectionCount := len(m.selectedCommits)
 	selectionText := ""
 	if selectionCount > 0 {
@@ -330,25 +330,25 @@ func (m *ListingModel) renderStatusBar() string {
 		if m.flashLimit {
 			style = flashStyle
 		}
-		
+
 		tokenCount := m.calculateTokensForSelection()
 		tokenText := core.FormatTokenCount(tokenCount)
-		
+
 		selectionText = fmt.Sprintf(" • %s • %s • %s", 
 			style.Render(fmt.Sprintf("%d/5 selected", selectionCount)),
 			positionStyle.Render(fmt.Sprintf("Tokens: 🪙 %s", tokenText)),
 			positionStyle.Render(fmt.Sprintf("Provider: %s", m.llmProviderType)))
 	}
-	
+
 	modeText := ""
 	if m.selectionMode {
 		modeText = fmt.Sprintf(" • %s", helpKeyStyle.Render("RANGE MODE"))
 	}
-	
+
 	position := positionStyle.Render(fmt.Sprintf("%d/%d", m.cursor+1, len(m.commits)))
-	
+
 	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", selectHelp, " • ", rangeHelp, " • ", nextHelp, " • ", clearHelp, " • ", quitHelp)
-	
+
 	rightSide := fmt.Sprintf("%s%s%s", position, selectionText, modeText)
 	statusContent := lipgloss.JoinHorizontal(
 		lipgloss.Left,
@@ -356,7 +356,7 @@ func (m *ListingModel) renderStatusBar() string {
 		strings.Repeat(" ", 10),
 		rightSide,
 	)
-	
+
 	return statusBarStyle.Render(statusContent)
 }
 
