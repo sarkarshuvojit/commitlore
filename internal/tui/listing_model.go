@@ -321,6 +321,7 @@ func (m *ListingModel) renderStatusBar() string {
 	rangeHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("V"), helpDescStyle.Render("range"))
 	nextHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("N"), helpDescStyle.Render("next"))
 	clearHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("clear"))
+	providerHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("p"), helpDescStyle.Render("providers"))
 	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
 
 	selectionCount := len(m.selectedCommits)
@@ -347,7 +348,7 @@ func (m *ListingModel) renderStatusBar() string {
 
 	position := positionStyle.Render(fmt.Sprintf("%d/%d", m.cursor+1, len(m.commits)))
 
-	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", selectHelp, " • ", rangeHelp, " • ", nextHelp, " • ", clearHelp, " • ", quitHelp)
+	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", selectHelp, " • ", rangeHelp, " • ", nextHelp, " • ", clearHelp, " • ", providerHelp, " • ", quitHelp)
 
 	rightSide := fmt.Sprintf("%s%s%s", position, selectionText, modeText)
 	statusContent := lipgloss.JoinHorizontal(

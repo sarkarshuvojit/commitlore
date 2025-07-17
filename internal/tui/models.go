@@ -14,6 +14,7 @@ const (
 	TopicSelectionView
 	FormatSelectionView
 	ContentCreationView
+	ProviderView
 )
 
 // BaseModel contains common data needed by all models
@@ -35,6 +36,7 @@ type AppModel struct {
 	topicModel     *TopicModel
 	formatModel    *FormatModel
 	contentModel   *ContentModel
+	providerModel  *ProviderModel
 	
 	// Shared data between views
 	selectedCommits map[int]bool
@@ -48,6 +50,7 @@ type (
 	NextMsg        struct{}
 	ErrorMsg       struct{ Error string }
 	SelectionMsg   struct{ Selection interface{} }
+	ProviderMsg    struct{}
 	flashTimerMsg  struct{}
 	splashTimerMsg struct{}
 )
