@@ -282,11 +282,11 @@ func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
 	// Get the appropriate system prompt based on format
 	var systemPrompt string
 	switch m.selectedFormat {
-	case "Twitter Thread":
+	case ContentFormatTwitterThread:
 		systemPrompt = llm.TwitterThreadPrompt
-	case "Blog Article":
+	case ContentFormatBlogArticle:
 		systemPrompt = llm.BlogPostPrompt
-	case "LinkedIn Post":
+	case ContentFormatLinkedInPost:
 		systemPrompt = llm.LinkedInPostPrompt
 	default:
 		systemPrompt = llm.ContentGenerationPrompt
