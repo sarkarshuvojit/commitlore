@@ -6,6 +6,13 @@ import (
 	"github.com/sarkarshuvojit/commitlore/internal/core"
 )
 
+// Content format constants
+const (
+	ContentFormatBlogArticle   = "Blog Article"
+	ContentFormatTwitterThread = "Twitter Thread"
+	ContentFormatLinkedInPost  = "LinkedIn Post"
+)
+
 // System prompts for analyzing commit changelists to extract feature-specific information
 // These prompts are designed to work with the key features outlined in the product specification
 
@@ -381,11 +388,11 @@ func GetContentCreationPrompt(format, topic string) string {
 	var systemPrompt string
 	
 	switch format {
-	case "Twitter Thread":
+	case ContentFormatTwitterThread:
 		systemPrompt = TwitterThreadPrompt
-	case "Blog Article":
+	case ContentFormatBlogArticle:
 		systemPrompt = BlogPostPrompt
-	case "LinkedIn Post":
+	case ContentFormatLinkedInPost:
 		systemPrompt = LinkedInPostPrompt
 	default:
 		systemPrompt = ContentGenerationPrompt
