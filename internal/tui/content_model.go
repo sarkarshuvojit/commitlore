@@ -54,10 +54,10 @@ type ContentModel struct {
 func NewContentModel(base BaseModel) *ContentModel {
 	vp := viewport.New(80, 20)
 
-	// Create async wrapper with 60 second timeout
+	// Create async wrapper with 2 minute timeout
 	var asyncWrapper *llm.AsyncLLMWrapper
 	if base.llmProvider != nil {
-		asyncWrapper = llm.NewAsyncLLMWrapper(base.llmProvider, 60*time.Second)
+		asyncWrapper = llm.NewAsyncLLMWrapper(base.llmProvider, 2*time.Minute)
 	}
 
 	return &ContentModel{
@@ -186,39 +186,14 @@ func (m *ContentModel) View() string {
 		return m.renderFinalOutput(headerWithBg)
 	}
 
-	leftWidth := 48
-	rightWidth := 48
-
 	promptTitle := subjectStyle.Render("📝 Your Instructions")
 	promptBox := commitRowStyle.
-		Width(leftWidth).
+		Width(96).
 		Height(10).
 		Padding(1).
 		Render(m.promptText + "█")
 
-	leftPanel := lipgloss.JoinVertical(lipgloss.Left, promptTitle, promptBox)
-
-	contentTitle := subjectStyle.Render("📄 Generated Content")
-	contentText := m.generatedContent
-	if contentText == "" {
-		if m.isGenerating {
-			hourglass := m.getHourglassFrame()
-			elapsedTime := m.getElapsedTime()
-			contentText = fmt.Sprintf("🤖 Generating content with AI... %s\n\nTime elapsed: %s", hourglass, elapsedTime)
-		} else {
-			contentText = "Generated content will appear here after you provide instructions..."
-		}
-	}
-
-	contentBox := commitRowStyle.
-		Width(rightWidth).
-		Height(10).
-		Padding(1).
-		Render(contentText)
-
-	rightPanel := lipgloss.JoinVertical(lipgloss.Left, contentTitle, contentBox)
-
-	content := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
+	content := lipgloss.JoinVertical(lipgloss.Left, promptTitle, promptBox)
 
 	var helpText string
 	if m.isGenerating {
