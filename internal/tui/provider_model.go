@@ -88,141 +88,409 @@ func (m *ProviderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *ProviderModel) View() string {
 	if m.errorMsg != "" {
-		errorContent := errorStyle.Render(fmt.Sprintf("⚠ Error: %s", m.errorMsg))
-		helpText := helpDescStyle.Render("Press 'escape' to go back")
-		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, errorContent, helpText))
+		return m.renderErrorState()
 	}
 
 	if m.loading {
-		loadingContent := emptyStyle.Render("⏳ Loading providers...")
-		return appStyle.Render(loadingContent)
+		return m.renderLoadingState()
 	}
 
 	if len(m.providers) == 0 {
-		emptyContent := emptyStyle.Render("📭 No providers configured")
-		helpText := helpDescStyle.Render("Press 'escape' to go back")
-		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Center, emptyContent, helpText))
+		return m.renderEmptyState()
 	}
 
-	header := m.renderHeader()
-	content := m.renderProviderList()
-	statusBar := m.renderStatusBar()
-
-	main := lipgloss.JoinVertical(lipgloss.Left, header, content, statusBar)
-	return appStyle.Render(main)
+	return m.renderMainView()
 }
 
-func (m *ProviderModel) renderHeader() string {
-	title := titleStyle.Render("🔧 Provider Management")
-	subtitle := subtitleStyle.Render(fmt.Sprintf("%d providers configured", len(m.providers)))
+// New beautiful rendering methods
 
-	headerContent := lipgloss.JoinVertical(lipgloss.Left, title, subtitle)
-	headerWithBg := headerStyle.Width(100).Align(lipgloss.Left).Render(headerContent)
+func (m *ProviderModel) renderErrorState() string {
+	// Sophisticated error display with gradient border
+	errorIcon := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#ef4444")).
+		SetString("󰀪")
 
-	return headerWithBg
+	errorTitle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#ef4444")).
+		Bold(true).
+		SetString("Connection Error")
+
+	errorMsg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#64748b")).
+		SetString(m.errorMsg)
+
+	errorCard := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#ef4444")).
+		Padding(2, 4).
+		Width(60).
+		Align(lipgloss.Center)
+
+	errorContent := lipgloss.JoinVertical(lipgloss.Center,
+		lipgloss.JoinHorizontal(lipgloss.Left, errorIcon.Render(), " ", errorTitle.Render()),
+		"",
+		errorMsg.Render(),
+		"",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#64748b")).Render("Press 'esc' to go back"))
+
+	return lipgloss.Place(100, 30, lipgloss.Center, lipgloss.Center, errorCard.Render(errorContent))
 }
 
-func (m *ProviderModel) renderProviderList() string {
-	var rows []string
+func (m *ProviderModel) renderLoadingState() string {
+	// Elegant loading animation with spinner
+	spinner := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6366f1")).
+		Bold(true).
+		SetString("◐")
+
+	loadingText := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#94a3b8")).
+		SetString("Discovering AI providers...")
+
+	loadingCard := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#334155")).
+		Padding(2, 4).
+		Width(40).
+		Align(lipgloss.Center)
+
+	loadingContent := lipgloss.JoinVertical(lipgloss.Center,
+		lipgloss.JoinHorizontal(lipgloss.Left, spinner.Render(), " ", loadingText.Render()))
+
+	return lipgloss.Place(100, 30, lipgloss.Center, lipgloss.Center, loadingCard.Render(loadingContent))
+}
+
+func (m *ProviderModel) renderEmptyState() string {
+	// Beautiful empty state with illustration
+	emptyIcon := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#64748b")).
+		SetString("󰋘")
+
+	emptyTitle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#94a3b8")).
+		Bold(true).
+		SetString("No AI Providers Available")
+
+	emptyMsg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#64748b")).
+		SetString("Configure your preferred AI provider to get started")
+
+	emptyCard := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#334155")).
+		Padding(3, 6).
+		Width(50).
+		Align(lipgloss.Center)
+
+	emptyContent := lipgloss.JoinVertical(lipgloss.Center,
+		emptyIcon.Render(),
+		"",
+		emptyTitle.Render(),
+		"",
+		emptyMsg.Render(),
+		"",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#64748b")).Render("Press 'esc' to go back"))
+
+	return lipgloss.Place(100, 30, lipgloss.Center, lipgloss.Center, emptyCard.Render(emptyContent))
+}
+
+func (m *ProviderModel) renderMainView() string {
+	// Modern card-based layout with sophisticated spacing
+	header := m.renderModernHeader()
+	providerGrid := m.renderProviderGrid()
+	footer := m.renderModernFooter()
+
+	mainContainer := lipgloss.NewStyle().
+		Padding(2, 4).
+		Width(96)
+
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		providerGrid,
+		"",
+		footer)
+
+	return mainContainer.Render(content)
+}
+
+func (m *ProviderModel) renderModernHeader() string {
+	// Elegant header with gradient effect
+	title := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#f8fafc")).
+		Bold(true).
+		SetString("AI Provider Selection")
+
+	subtitle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#94a3b8")).
+		SetString("Choose your preferred AI assistant")
+
+	// Active provider indicator
+	activeProviderText := ""
+	if m.providerConfig != nil {
+		for _, provider := range m.providers {
+			if provider.ID == m.providerConfig.ActiveProviderID {
+				activeIndicator := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("#10b981")).
+					SetString("●")
+				
+				activeName := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("#10b981")).
+					Bold(true).
+					SetString(provider.Name)
+
+				activeProviderText = lipgloss.JoinHorizontal(lipgloss.Left,
+					activeIndicator.Render(), " Currently using: ", activeName.Render())
+				break
+			}
+		}
+	}
+
+	headerContent := lipgloss.JoinVertical(lipgloss.Left,
+		title.Render(),
+		subtitle.Render())
+	
+	if activeProviderText != "" {
+		headerContent = lipgloss.JoinVertical(lipgloss.Left,
+			headerContent,
+			"",
+			activeProviderText)
+	}
+
+	return headerContent
+}
+
+func (m *ProviderModel) renderProviderGrid() string {
+	// Modern card-based provider grid
+	var cards []string
 
 	for i, provider := range m.providers {
-		isSelected := i == m.cursor
-		isActive := provider.ID == m.providerConfig.ActiveProviderID
-
-		row := m.renderProviderRow(provider, isSelected, isActive)
-		rows = append(rows, row)
+		card := m.renderProviderCard(provider, i == m.cursor)
+		cards = append(cards, card)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return contentStyle.Render(content)
+	// Arrange cards in a clean vertical layout with proper spacing
+	return lipgloss.JoinVertical(lipgloss.Left, cards...)
 }
 
-func (m *ProviderModel) renderProviderRow(provider config.Provider, isSelected bool, isActive bool) string {
-	cursor := "  "
+func (m *ProviderModel) renderProviderCard(provider config.Provider, isSelected bool) string {
+	// Sophisticated card design with status indicators
+	isActive := provider.ID == m.providerConfig.ActiveProviderID
+
+	// Define card styling based on state
+	var borderColor, bgColor lipgloss.Color
+	var borderStyle lipgloss.Border = lipgloss.RoundedBorder()
+
 	if isSelected {
-		cursor = "▶ "
-	}
-
-	// Provider name with type indicator
-	name := provider.Name
-	typeIndicator := m.getTypeIndicator(provider.Type)
-	
-	// Status indicators
-	statusIndicators := []string{}
-	
-	if isActive {
-		statusIndicators = append(statusIndicators, "🟢 ACTIVE")
-	}
-	
-	if !provider.Enabled {
-		statusIndicators = append(statusIndicators, "🔒 DISABLED")
-	} else if !provider.Available {
-		statusIndicators = append(statusIndicators, "❌ UNAVAILABLE")
+		if isActive {
+			borderColor = lipgloss.Color("#10b981") // Green for active selection
+		} else if !provider.Enabled {
+			borderColor = lipgloss.Color("#64748b") // Gray for disabled selection
+		} else if !provider.Available {
+			borderColor = lipgloss.Color("#f59e0b") // Amber for unavailable selection
+		} else {
+			borderColor = lipgloss.Color("#6366f1") // Primary for available selection
+		}
+		bgColor = lipgloss.Color("#1e293b") // Darker background for selected
 	} else {
-		statusIndicators = append(statusIndicators, "✅ AVAILABLE")
+		borderColor = lipgloss.Color("#334155") // Subtle border for unselected
+		bgColor = lipgloss.Color("#0f172a")     // Dark background for unselected
 	}
 
-	// Build the row content
-	firstLine := fmt.Sprintf("%s%s %s %s", cursor, typeIndicator, name, strings.Join(statusIndicators, " "))
-	
-	// Use "Under development" for disabled providers, otherwise use the actual description
-	var description string
+	// Selection indicator
+	cursor := ""
+	if isSelected {
+		cursor = lipgloss.NewStyle().
+			Foreground(borderColor).
+			Bold(true).
+			SetString("▶ ").Render()
+	} else {
+		cursor = "  "
+	}
+
+	// Provider type icon with modern styling
+	typeIcon := m.getModernTypeIcon(provider.Type)
+	typeIconStyled := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#8b5cf6")).
+		Bold(true).
+		SetString(typeIcon)
+
+	// Provider name with proper hierarchy
+	nameStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#f8fafc")).
+		Bold(true)
+	if !provider.Enabled {
+		nameStyle = nameStyle.Foreground(lipgloss.Color("#64748b"))
+	}
+	providerName := nameStyle.SetString(provider.Name)
+
+	// Status badges with modern design
+	statusBadge := m.renderStatusBadge(provider, isActive)
+
+	// Provider description with subtle styling
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#94a3b8"))
+	if !provider.Enabled {
+		descStyle = descStyle.Foreground(lipgloss.Color("#64748b")).Italic(true)
+	}
+
+	description := provider.Description
 	if !provider.Enabled {
 		description = "Under development"
-	} else {
-		description = provider.Description
 	}
-	secondLine := fmt.Sprintf("  %s", description)
 
-	// Add availability details for unavailable providers
-	thirdLine := ""
+	// Availability hint for unavailable providers
+	var availabilityHint string
 	if provider.Enabled && !provider.Available {
-		thirdLine = fmt.Sprintf("  💡 %s", m.getAvailabilityHint(provider))
+		hintStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#f59e0b")).
+			Italic(true)
+		availabilityHint = hintStyle.SetString("⚡ " + m.getAvailabilityHint(provider)).Render()
 	}
 
-	var rowContent string
-	if thirdLine != "" {
-		rowContent = lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine, thirdLine)
+	// Card header with icon, name, and status
+	cardHeader := lipgloss.JoinHorizontal(lipgloss.Left,
+		cursor,
+		typeIconStyled.Render(), " ",
+		providerName.Render(), " ",
+		statusBadge)
+
+	// Card content assembly
+	var cardContent string
+	if availabilityHint != "" {
+		cardContent = lipgloss.JoinVertical(lipgloss.Left,
+			cardHeader,
+			"",
+			descStyle.Render(description),
+			"",
+			availabilityHint)
 	} else {
-		rowContent = lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
+		cardContent = lipgloss.JoinVertical(lipgloss.Left,
+			cardHeader,
+			"",
+			descStyle.Render(description))
 	}
 
-	// Apply styling based on state with consistent width and alignment
-	var style lipgloss.Style
-	if isSelected {
-		if !provider.Enabled {
-			style = disabledSelectedRowStyle
-		} else if !provider.Available {
-			style = unavailableSelectedRowStyle
-		} else {
-			style = selectedCommitRowStyle
-		}
-	} else {
-		if !provider.Enabled {
-			style = disabledRowStyle
-		} else if !provider.Available {
-			style = unavailableRowStyle
-		} else {
-			style = commitRowStyle
-		}
-	}
-	
-	// Apply consistent width and alignment to all rows
-	return style.Width(96).Align(lipgloss.Left).Render(rowContent)
+	// Final card styling
+	cardStyle := lipgloss.NewStyle().
+		Border(borderStyle).
+		BorderForeground(borderColor).
+		Background(bgColor).
+		Padding(1, 2).
+		Margin(0, 0, 1, 0).
+		Width(84)
+
+	return cardStyle.Render(cardContent)
 }
 
-func (m *ProviderModel) getTypeIndicator(providerType config.ProviderType) string {
+func (m *ProviderModel) renderStatusBadge(provider config.Provider, isActive bool) string {
+	if isActive {
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ffffff")).
+			Background(lipgloss.Color("#10b981")).
+			Padding(0, 1).
+			Bold(true).
+			SetString("ACTIVE").Render()
+	}
+
+	if !provider.Enabled {
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ffffff")).
+			Background(lipgloss.Color("#64748b")).
+			Padding(0, 1).
+			SetString("BETA").Render()
+	}
+
+	if !provider.Available {
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ffffff")).
+			Background(lipgloss.Color("#f59e0b")).
+			Padding(0, 1).
+			SetString("SETUP REQUIRED").Render()
+	}
+
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#ffffff")).
+		Background(lipgloss.Color("#6366f1")).
+		Padding(0, 1).
+		SetString("READY").Render()
+}
+
+func (m *ProviderModel) renderModernFooter() string {
+	// Elegant footer with helpful keyboard shortcuts
+	var shortcuts []string
+
+	if len(m.providers) > 0 {
+		shortcuts = append(shortcuts,
+			m.renderShortcut("↑↓", "navigate"),
+			m.renderShortcut("enter", "select"),
+			m.renderShortcut("r", "refresh"))
+	}
+
+	shortcuts = append(shortcuts,
+		m.renderShortcut("esc", "back"),
+		m.renderShortcut("q", "quit"))
+
+	shortcutText := lipgloss.JoinHorizontal(lipgloss.Left, shortcuts...)
+
+	// Position indicator
+	position := ""
+	if len(m.providers) > 0 {
+		posStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6366f1")).
+			Bold(true)
+		position = posStyle.SetString(fmt.Sprintf("%d/%d", m.cursor+1, len(m.providers))).Render()
+	}
+
+	// Create footer layout
+	footerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#64748b")).
+		Width(84)
+
+	if position != "" {
+		footer := lipgloss.JoinHorizontal(lipgloss.Left,
+			shortcutText,
+			strings.Repeat(" ", max(0, 84-lipgloss.Width(shortcutText)-lipgloss.Width(position))),
+			position)
+		return footerStyle.Render(footer)
+	}
+
+	return footerStyle.Render(shortcutText)
+}
+
+func (m *ProviderModel) renderShortcut(key, desc string) string {
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#8b5cf6")).
+		Bold(true)
+	
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#64748b"))
+
+	return lipgloss.JoinHorizontal(lipgloss.Left,
+		keyStyle.Render(key), " ", descStyle.Render(desc), "  ")
+}
+
+func (m *ProviderModel) getModernTypeIcon(providerType config.ProviderType) string {
 	switch providerType {
 	case config.APIProviderType:
-		return "🌐"
+		return "󰖟"  // Cloud icon
 	case config.CLIProviderType:
-		return "⚡"
+		return "󰆍"  // Terminal icon
 	case config.LocalProviderType:
-		return "💻"
+		return "󰟀"  // Computer icon
 	default:
-		return "❓"
+		return "󰋘"  // Generic icon
 	}
 }
+
+// Helper function for max calculation
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 
 func (m *ProviderModel) getAvailabilityHint(provider config.Provider) string {
 	switch provider.Type {
@@ -248,37 +516,6 @@ func (m *ProviderModel) getAvailabilityHint(provider config.Provider) string {
 	}
 }
 
-func (m *ProviderModel) renderStatusBar() string {
-	navHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("↑↓/jk"), helpDescStyle.Render("navigate"))
-	selectHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("enter"), helpDescStyle.Render("select"))
-	refreshHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("r"), helpDescStyle.Render("refresh"))
-	backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
-	quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
-
-	position := positionStyle.Render(fmt.Sprintf("%d/%d", m.cursor+1, len(m.providers)))
-
-	var activeProvider string
-	if m.providerConfig != nil {
-		for _, provider := range m.providers {
-			if provider.ID == m.providerConfig.ActiveProviderID {
-				activeProvider = fmt.Sprintf("Active: %s", provider.Name)
-				break
-			}
-		}
-	}
-
-	helpText := lipgloss.JoinHorizontal(lipgloss.Left, navHelp, " • ", selectHelp, " • ", refreshHelp, " • ", backHelp, " • ", quitHelp)
-
-	rightSide := fmt.Sprintf("%s • %s", position, activeProvider)
-	statusContent := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		helpText,
-		strings.Repeat(" ", 5),
-		rightSide,
-	)
-
-	return statusBarStyle.Render(statusContent)
-}
 
 // loadProviders is a command that loads provider configuration
 func (m *ProviderModel) loadProviders() tea.Msg {
@@ -314,23 +551,3 @@ type providerLoadedMsg struct {
 	config *config.ProviderConfig
 }
 
-// Additional styles for provider display
-var (
-	disabledRowStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Italic(true)
-
-	unavailableRowStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("203"))
-
-	disabledSelectedRowStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color("240")).
-		Foreground(lipgloss.Color("255")).
-		Bold(true).
-		Italic(true)
-
-	unavailableSelectedRowStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color("203")).
-		Foreground(lipgloss.Color("255")).
-		Bold(true)
-)
