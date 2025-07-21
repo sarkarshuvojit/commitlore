@@ -25,8 +25,10 @@ Guidelines:
 - Consider the broader impact and learnings from the changes
 - Prioritize topics that would resonate with other developers
 - Make topics specific enough to be actionable but broad enough to be interesting
-- Return only the topic titles, one per line
-- No numbering, bullets, or additional formatting`
+- Return ONLY the topic titles, one per line
+- No numbering, bullets, or additional formatting
+- Do NOT include any introductory text, explanations, or preamble
+- Start immediately with the first topic title`
 
 	userPrompt := fmt.Sprintf("Analyze the following git changesets and extract 3-5 key topics for content creation:\n\n%s", changesetString)
 	
@@ -81,6 +83,26 @@ func parseTopicsFromResponse(response string) []string {
 	var topics []string
 	var skippedLines int
 	var shortLines int
+	var introductoryLines int
+	
+	// Common introductory phrases that should be filtered out
+	introductoryPhrases := []string{
+		"here are",
+		"below are", 
+		"the following are",
+		"i've identified",
+		"based on",
+		"analyzing",
+		"from the",
+		"these are",
+		"key topics",
+		"meaningful topics",
+		"extracted topics",
+		"relevant topics",
+		"topics for",
+		"content creation",
+		"technical topics",
+	}
 	
 	for _, line := range rawLines {
 		line = strings.TrimSpace(line)
@@ -89,8 +111,27 @@ func parseTopicsFromResponse(response string) []string {
 			continue
 		}
 		
+		// Check if this line is likely an introductory phrase
+		lowerLine := strings.ToLower(line)
+		isIntroductory := false
+		for _, phrase := range introductoryPhrases {
+			if strings.Contains(lowerLine, phrase) {
+				isIntroductory = true
+				introductoryLines++
+				break
+			}
+		}
+		
+		if isIntroductory {
+			continue
+		}
+		
 		// Remove common prefixes like numbers, bullets, dashes
 		line = strings.TrimLeft(line, "0123456789.-• ")
+		line = strings.TrimSpace(line)
+		
+		// Additional cleanup: remove colons at the end
+		line = strings.TrimRight(line, ":")
 		line = strings.TrimSpace(line)
 		
 		if line != "" && len(line) > 10 { // Filter out very short lines
@@ -104,7 +145,8 @@ func parseTopicsFromResponse(response string) []string {
 	logger.Debug("Completed topic parsing", 
 		"parsed_topics", len(topics),
 		"skipped_empty_lines", skippedLines,
-		"skipped_short_lines", shortLines)
+		"skipped_short_lines", shortLines,
+		"skipped_introductory_lines", introductoryLines)
 	
 	return topics
 }
