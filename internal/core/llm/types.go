@@ -51,6 +51,51 @@ type ClaudeCLIClient struct {
 	execPath string
 }
 
+// OpenAIMessage represents a message in the OpenAI API format
+type OpenAIMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// OpenAIRequest represents the request payload for OpenAI API
+type OpenAIRequest struct {
+	Model       string          `json:"model"`
+	Messages    []OpenAIMessage `json:"messages"`
+	MaxTokens   int             `json:"max_tokens,omitempty"`
+	Temperature float32         `json:"temperature,omitempty"`
+}
+
+// OpenAIChoice represents a choice in the OpenAI response
+type OpenAIChoice struct {
+	Index   int           `json:"index"`
+	Message OpenAIMessage `json:"message"`
+}
+
+// OpenAIUsage represents token usage in OpenAI response
+type OpenAIUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+// OpenAIResponse represents the response from OpenAI API
+type OpenAIResponse struct {
+	ID      string        `json:"id"`
+	Object  string        `json:"object"`
+	Created int64         `json:"created"`
+	Model   string        `json:"model"`
+	Choices []OpenAIChoice `json:"choices"`
+	Usage   OpenAIUsage   `json:"usage"`
+}
+
+// OpenAIClient represents the OpenAI API client
+type OpenAIClient struct {
+	apiKey     string
+	httpClient interface{ Do(req *http.Request) (*http.Response, error) }
+	baseURL    string
+	model      string
+}
+
 // Changeset represents a git changeset for analysis
 type Changeset struct {
 	CommitHash string

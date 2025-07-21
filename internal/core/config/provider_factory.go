@@ -118,8 +118,18 @@ func (f *ProviderFactory) createAPIProvider(provider *Provider) (llm.LLMProvider
 		return llm.NewClaudeClient(apiKey), nil
 
 	case "openai-api":
-		// TODO: Implement OpenAI API provider
-		return nil, fmt.Errorf("OpenAI API provider not yet implemented")
+		envVar, exists := provider.Config["api_key"]
+		if !exists {
+			return nil, fmt.Errorf("API key environment variable not configured")
+		}
+
+		apiKey := os.Getenv(envVar)
+		if apiKey == "" {
+			return nil, fmt.Errorf("API key not found in environment variable %s", envVar)
+		}
+
+		logger.Info("Creating OpenAI API client", "model", provider.Config["model"])
+		return llm.NewOpenAIClient(apiKey), nil
 
 	case "gemini-api":
 		// TODO: Implement Gemini API provider
@@ -170,7 +180,7 @@ func (f *ProviderFactory) GetAvailableProviderNames() []string {
 	return names
 }
 
-// SetActiveProvider sets the active provider and saves the configuration
+// SetActiveProvider sets the active provider in memory only
 func (f *ProviderFactory) SetActiveProvider(providerID string) error {
 	logger := core.GetLogger()
 	logger.Debug("Setting active provider", "provider_id", providerID)
@@ -189,12 +199,6 @@ func (f *ProviderFactory) SetActiveProvider(providerID string) error {
 	}
 
 	f.config.ActiveProviderID = providerID
-	
-	if err := SaveProviderConfig(f.config); err != nil {
-		logger.Error("Failed to save provider config after setting active provider", "error", err)
-		return fmt.Errorf("failed to save configuration: %w", err)
-	}
-
 	logger.Info("Successfully set active provider", "provider_id", providerID, "provider_name", provider.Name)
 	return nil
 }

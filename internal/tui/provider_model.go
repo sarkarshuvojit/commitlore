@@ -59,8 +59,7 @@ func (m *ProviderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Select this provider and go back
 					m.providerConfig.ActiveProviderID = selectedProvider.ID
 					return m, tea.Batch(
-						m.saveProviderConfig,
-						func() tea.Msg { return providerChangedMsg{} },
+						func() tea.Msg { return ProviderSelectedMsg{ProviderID: selectedProvider.ID} },
 						func() tea.Msg { return BackMsg{} },
 					)
 				}
@@ -532,22 +531,13 @@ func (m *ProviderModel) loadProviders() tea.Msg {
 	return providerLoadedMsg{config: config}
 }
 
-// saveProviderConfig is a command that saves provider configuration
-func (m *ProviderModel) saveProviderConfig() tea.Msg {
-	logger := core.GetLogger()
-	logger.Debug("Saving provider configuration")
-
-	if err := config.SaveProviderConfig(m.providerConfig); err != nil {
-		logger.Error("Failed to save provider config", "error", err)
-		return ErrorMsg{Error: fmt.Sprintf("Failed to save providers: %v", err)}
-	}
-
-	logger.Info("Successfully saved provider configuration")
-	return nil
-}
 
 // Custom messages for provider management
 type providerLoadedMsg struct {
 	config *config.ProviderConfig
+}
+
+type ProviderSelectedMsg struct {
+	ProviderID string
 }
 

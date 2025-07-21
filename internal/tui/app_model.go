@@ -118,9 +118,9 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ErrorMsg:
 		m.errorMsg = msg.Error
 		return m, nil
-	case providerChangedMsg:
+	case ProviderSelectedMsg:
 		// Provider was changed, reload the base model
-		return m.reloadProvider()
+		return m.reloadProvider(msg.ProviderID)
 	}
 	
 	// Delegate to current view model
@@ -236,12 +236,14 @@ func (m *AppModel) handleBack() (tea.Model, tea.Cmd) {
 }
 
 // providerChangedMsg is sent when the active provider has been changed
-type providerChangedMsg struct{}
+type providerChangedMsg struct {
+	ProviderID string
+}
 
 // reloadProvider reloads the provider after a change
-func (m *AppModel) reloadProvider() (tea.Model, tea.Cmd) {
+func (m *AppModel) reloadProvider(providerID string) (tea.Model, tea.Cmd) {
 	logger := core.GetLogger()
-	logger.Debug("Reloading provider after configuration change")
+	logger.Debug("Reloading provider after configuration change", "provider_id", providerID)
 
 	// Load updated provider configuration
 	providerConfig, err := config.LoadProviderConfig()
@@ -250,6 +252,9 @@ func (m *AppModel) reloadProvider() (tea.Model, tea.Cmd) {
 		m.errorMsg = "Failed to reload provider configuration"
 		return m, nil
 	}
+
+	// Set the active provider to the selected one
+	providerConfig.ActiveProviderID = providerID
 
 	// Update provider availability
 	config.UpdateProviderAvailability(providerConfig)
@@ -282,6 +287,9 @@ func (m *AppModel) reloadProvider() (tea.Model, tea.Cmd) {
 	m.formatModel.BaseModel = baseModel
 	m.contentModel.BaseModel = baseModel
 	m.providerModel.BaseModel = baseModel
+	
+	// Update the provider model's configuration to reflect the change
+	m.providerModel.providerConfig = providerConfig
 
 	logger.Info("Successfully reloaded provider", "provider_name", m.llmProviderType)
 	return m, nil

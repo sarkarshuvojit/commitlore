@@ -1,11 +1,8 @@
 package config
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/sarkarshuvojit/commitlore/internal/core"
 )
@@ -66,7 +63,7 @@ func DefaultProviderConfig() *ProviderConfig {
 				Name:        "OpenAI API",
 				Type:        APIProviderType,
 				Description: "OpenAI GPT models via API (requires OPENAI_API_KEY)",
-				Enabled:     false, // Disabled until implemented
+				Enabled:     true, // Now implemented
 				Available:   false,
 				Config: map[string]string{
 					"model":   "gpt-4",
@@ -102,71 +99,20 @@ func DefaultProviderConfig() *ProviderConfig {
 	}
 }
 
-// LoadProviderConfig loads provider configuration from user's home directory
+// LoadProviderConfig returns the default provider configuration
 func LoadProviderConfig() (*ProviderConfig, error) {
 	logger := core.GetLogger()
-	configPath, err := getConfigPath()
-	if err != nil {
-		logger.Error("Failed to get config path", "error", err)
-		return nil, err
-	}
+	logger.Debug("Loading default provider configuration")
 
-	logger.Debug("Loading provider config", "path", configPath)
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		logger.Info("Provider config file does not exist, creating default", "path", configPath)
-		config := DefaultProviderConfig()
-		if saveErr := SaveProviderConfig(config); saveErr != nil {
-			logger.Error("Failed to save default config", "error", saveErr)
-			return nil, saveErr
-		}
-		return config, nil
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		logger.Error("Failed to read provider config file", "error", err, "path", configPath)
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	var config ProviderConfig
-	if err := json.Unmarshal(data, &config); err != nil {
-		logger.Error("Failed to unmarshal provider config", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
-	}
-
-	logger.Info("Successfully loaded provider config", "providers_count", len(config.Providers))
-	return &config, nil
+	config := DefaultProviderConfig()
+	logger.Info("Successfully loaded default provider config", "providers_count", len(config.Providers))
+	return config, nil
 }
 
-// SaveProviderConfig saves provider configuration to user's home directory
+// SaveProviderConfig is a no-op since we don't persist configuration
 func SaveProviderConfig(config *ProviderConfig) error {
 	logger := core.GetLogger()
-	configPath, err := getConfigPath()
-	if err != nil {
-		logger.Error("Failed to get config path", "error", err)
-		return err
-	}
-
-	// Ensure config directory exists
-	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		logger.Error("Failed to create config directory", "error", err, "dir", configDir)
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		logger.Error("Failed to marshal provider config", "error", err)
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
-		logger.Error("Failed to write provider config file", "error", err, "path", configPath)
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-
-	logger.Info("Successfully saved provider config", "path", configPath)
+	logger.Debug("Provider configuration is not persisted to disk")
 	return nil
 }
 
@@ -181,9 +127,9 @@ func CheckProviderAvailability(provider *Provider) bool {
 		if envVar, exists := provider.Config["api_key"]; exists {
 			apiKey := os.Getenv(envVar)
 			available := apiKey != ""
-			logger.Debug("API provider availability check", 
-				"provider_id", provider.ID, 
-				"env_var", envVar, 
+			logger.Debug("API provider availability check",
+				"provider_id", provider.ID,
+				"env_var", envVar,
 				"available", available)
 			return available
 		}
@@ -195,8 +141,8 @@ func CheckProviderAvailability(provider *Provider) bool {
 		case "claude-cli":
 			_, err := exec.LookPath("claude")
 			available := err == nil
-			logger.Debug("CLI provider availability check", 
-				"provider_id", provider.ID, 
+			logger.Debug("CLI provider availability check",
+				"provider_id", provider.ID,
 				"available", available)
 			return available
 		}
@@ -207,8 +153,8 @@ func CheckProviderAvailability(provider *Provider) bool {
 		switch provider.ID {
 		case "ollama":
 			// TODO: Implement Ollama availability check via HTTP ping
-			logger.Debug("Local provider availability check", 
-				"provider_id", provider.ID, 
+			logger.Debug("Local provider availability check",
+				"provider_id", provider.ID,
 				"available", false)
 			return false
 		}
@@ -227,8 +173,8 @@ func UpdateProviderAvailability(config *ProviderConfig) {
 
 	for i := range config.Providers {
 		config.Providers[i].Available = CheckProviderAvailability(&config.Providers[i])
-		logger.Debug("Provider availability updated", 
-			"provider_id", config.Providers[i].ID, 
+		logger.Debug("Provider availability updated",
+			"provider_id", config.Providers[i].ID,
 			"available", config.Providers[i].Available)
 	}
 }
@@ -252,14 +198,4 @@ func GetProviderByID(config *ProviderConfig, id string) *Provider {
 		}
 	}
 	return nil
-}
-
-// getConfigPath returns the path to the provider configuration file
-func getConfigPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	return filepath.Join(homeDir, ".commitlore", "providers.json"), nil
 }
