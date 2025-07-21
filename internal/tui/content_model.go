@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/sarkarshuvojit/commitlore/internal/core"
 	"github.com/sarkarshuvojit/commitlore/internal/core/llm"
 )
@@ -102,7 +103,9 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// This is generated content
 				m.generatedContent = msg.Content
 				m.showFinalOutput = true
-				m.viewport.SetContent(msg.Content)
+				// Wrap text to fit viewport width (94 chars to account for padding)
+				wrappedContent := wordwrap.String(msg.Content, 94)
+				m.viewport.SetContent(wrappedContent)
 			}
 		}
 		return m, nil
@@ -124,7 +127,9 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// This is generated content
 				m.generatedContent = msg.Content
 				m.showFinalOutput = true
-				m.viewport.SetContent(msg.Content)
+				// Wrap text to fit viewport width (94 chars to account for padding)
+				wrappedContent := wordwrap.String(msg.Content, 94)
+				m.viewport.SetContent(wrappedContent)
 			}
 		}
 		return m, nil
