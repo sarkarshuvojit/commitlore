@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/sarkarshuvojit/commitlore/internal/core"
 	"github.com/sarkarshuvojit/commitlore/internal/core/llm"
 )
@@ -93,15 +94,18 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			m.errorMsg = ""
+			m.statusMessage = nil
 			// If this is a save success message, show it as status
 			if m.showFinalOutput && msg.Content != m.generatedContent {
 				// This is a save success message, show it briefly
-				m.errorMsg = msg.Content
+				m.statusMessage = NewSuccessMessage(msg.Content)
 			} else {
 				// This is generated content
 				m.generatedContent = msg.Content
 				m.showFinalOutput = true
-				m.viewport.SetContent(msg.Content)
+				// Wrap text to fit viewport width (94 chars to account for padding)
+				wrappedContent := wordwrap.String(msg.Content, 94)
+				m.viewport.SetContent(wrappedContent)
 			}
 		}
 		return m, nil
@@ -114,15 +118,18 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			m.errorMsg = ""
+			m.statusMessage = nil
 			// If this is a save success message, show it as status
 			if m.showFinalOutput && msg.Content != m.generatedContent {
 				// This is a save success message, show it briefly
-				m.errorMsg = msg.Content
+				m.statusMessage = NewSuccessMessage(msg.Content)
 			} else {
 				// This is generated content
 				m.generatedContent = msg.Content
 				m.showFinalOutput = true
-				m.viewport.SetContent(msg.Content)
+				// Wrap text to fit viewport width (94 chars to account for padding)
+				wrappedContent := wordwrap.String(msg.Content, 94)
+				m.viewport.SetContent(wrappedContent)
 			}
 		}
 		return m, nil
@@ -170,10 +177,18 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *ContentModel) View() string {
+	// Handle error messages (legacy support)
 	if m.errorMsg != "" {
 		errorContent := errorStyle.Render(fmt.Sprintf("⚠ Error: %s", m.errorMsg))
 		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit • 'esc' to go back")
 		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, errorContent, helpText))
+	}
+	
+	// Handle status messages (new system)
+	if m.statusMessage != nil {
+		statusContent := RenderStatusMessage(m.statusMessage)
+		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit • 'esc' to go back")
+		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, statusContent, helpText))
 	}
 
 	header := titleStyle.Render("✍️ Content Creation")

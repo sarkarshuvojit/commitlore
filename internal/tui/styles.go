@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -152,13 +153,40 @@ var (
 				Align(lipgloss.Right)
 )
 
-// Error and empty state styles
+// Message styles for different types
 var (
 	errorStyle = lipgloss.NewStyle().
 			Foreground(errorColor).
 			Bold(true).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(errorColor).
+			Padding(1, 2).
+			MarginTop(2).
+			MarginBottom(2)
+	
+	successStyle = lipgloss.NewStyle().
+			Foreground(successColor).
+			Bold(true).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(successColor).
+			Padding(1, 2).
+			MarginTop(2).
+			MarginBottom(2)
+	
+	warningStyle = lipgloss.NewStyle().
+			Foreground(warningColor).
+			Bold(true).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(warningColor).
+			Padding(1, 2).
+			MarginTop(2).
+			MarginBottom(2)
+	
+	infoStyle = lipgloss.NewStyle().
+			Foreground(accentColor).
+			Bold(true).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(accentColor).
 			Padding(1, 2).
 			MarginTop(2).
 			MarginBottom(2)
@@ -170,3 +198,50 @@ var (
 			MarginTop(4).
 			MarginBottom(4)
 )
+
+// RenderStatusMessage renders a status message with the appropriate style and icon
+func RenderStatusMessage(msg *StatusMessage) string {
+	if msg == nil {
+		return ""
+	}
+	
+	var style lipgloss.Style
+	var icon string
+	
+	switch msg.Type {
+	case MessageTypeError:
+		style = errorStyle
+		icon = "⚠"
+	case MessageTypeSuccess:
+		style = successStyle
+		icon = "✅"
+	case MessageTypeWarning:
+		style = warningStyle
+		icon = "⚡"
+	case MessageTypeInfo:
+		style = infoStyle
+		icon = "ℹ"
+	default:
+		style = errorStyle
+		icon = "⚠"
+	}
+	
+	return style.Render(fmt.Sprintf("%s %s", icon, msg.Content))
+}
+
+// Helper functions to create status messages
+func NewErrorMessage(content string) *StatusMessage {
+	return &StatusMessage{Content: content, Type: MessageTypeError}
+}
+
+func NewSuccessMessage(content string) *StatusMessage {
+	return &StatusMessage{Content: content, Type: MessageTypeSuccess}
+}
+
+func NewWarningMessage(content string) *StatusMessage {
+	return &StatusMessage{Content: content, Type: MessageTypeWarning}
+}
+
+func NewInfoMessage(content string) *StatusMessage {
+	return &StatusMessage{Content: content, Type: MessageTypeInfo}
+}
