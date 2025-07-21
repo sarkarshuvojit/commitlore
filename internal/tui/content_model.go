@@ -93,10 +93,11 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			m.errorMsg = ""
+			m.statusMessage = nil
 			// If this is a save success message, show it as status
 			if m.showFinalOutput && msg.Content != m.generatedContent {
 				// This is a save success message, show it briefly
-				m.errorMsg = msg.Content
+				m.statusMessage = NewSuccessMessage(msg.Content)
 			} else {
 				// This is generated content
 				m.generatedContent = msg.Content
@@ -114,10 +115,11 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			m.errorMsg = ""
+			m.statusMessage = nil
 			// If this is a save success message, show it as status
 			if m.showFinalOutput && msg.Content != m.generatedContent {
 				// This is a save success message, show it briefly
-				m.errorMsg = msg.Content
+				m.statusMessage = NewSuccessMessage(msg.Content)
 			} else {
 				// This is generated content
 				m.generatedContent = msg.Content
@@ -170,10 +172,18 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *ContentModel) View() string {
+	// Handle error messages (legacy support)
 	if m.errorMsg != "" {
 		errorContent := errorStyle.Render(fmt.Sprintf("⚠ Error: %s", m.errorMsg))
 		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit • 'esc' to go back")
 		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, errorContent, helpText))
+	}
+	
+	// Handle status messages (new system)
+	if m.statusMessage != nil {
+		statusContent := RenderStatusMessage(m.statusMessage)
+		helpText := helpDescStyle.Render("Press 'q' or Ctrl+C to quit • 'esc' to go back")
+		return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, statusContent, helpText))
 	}
 
 	header := titleStyle.Render("✍️ Content Creation")

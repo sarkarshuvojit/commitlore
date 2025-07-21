@@ -17,12 +17,29 @@ const (
 	ProviderView
 )
 
+// MessageType represents the type of message to display
+type MessageType int
+
+const (
+	MessageTypeInfo MessageType = iota
+	MessageTypeWarning
+	MessageTypeError
+	MessageTypeSuccess
+)
+
+// StatusMessage represents a message with a type
+type StatusMessage struct {
+	Content string
+	Type    MessageType
+}
+
 // BaseModel contains common data needed by all models
 type BaseModel struct {
 	repoPath        string
 	llmProvider     llm.LLMProvider
 	llmProviderType string
-	errorMsg        string
+	statusMessage   *StatusMessage
+	errorMsg        string // Deprecated: use statusMessage instead
 }
 
 // AppModel is the main model that manages view state and delegation
