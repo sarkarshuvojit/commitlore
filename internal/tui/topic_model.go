@@ -197,11 +197,11 @@ func (m *TopicModel) GetSelectedTopic() string {
 // ExtractTopics extracts topics from selected commits using async LLM calls
 func (m *TopicModel) ExtractTopics(commits []core.Commit, selectedCommits map[int]bool) tea.Cmd {
 	logger := core.GetLogger()
-	logger.Info("Starting topic extraction", "selected_commits", len(selectedCommits))
+	logger.Info("Starting topic extraction", "selected_commits", len(selectedCommits), "provider", m.llmProviderType)
 
 	if m.asyncWrapper == nil {
 		m.errorMsg = "LLM provider not configured"
-		logger.Error("LLM provider not configured for topic extraction")
+		logger.Error("LLM provider not configured for topic extraction", "provider", m.llmProviderType)
 		return nil
 	}
 
@@ -231,7 +231,7 @@ func (m *TopicModel) ExtractTopics(commits []core.Commit, selectedCommits map[in
 			// Get changelist data for this commit
 			changeset, err := core.GetChangesForCommit(m.repoPath, commit.Hash)
 			if err != nil {
-				logger.Error("Failed to get changeset for commit", "hash", commit.Hash, "error", err)
+				logger.Error("Failed to get changeset for commit", "hash", commit.Hash, "error", err, "provider", m.llmProviderType)
 				// Fall back to basic commit info
 				detail := fmt.Sprintf("- %s: %s", commit.Hash[:8], commit.Subject)
 				commitDetails = append(commitDetails, detail)
@@ -284,7 +284,7 @@ Provide 3-5 topics as a comma-separated list.`, strings.Join(commitDetails, "\n"
 	ctx := context.Background()
 	m.asyncWrapper.GenerateContentWithSystemPromptAsync(ctx, systemPrompt, userPrompt, responseChan)
 
-	logger.Info("Started async LLM call for topic extraction")
+	logger.Info("Started async LLM call for topic extraction", "provider", m.llmProviderType)
 
 	// Return command to wait for response
 	return tea.Batch(llm.WaitForLLMResponse(responseChan), doTick())

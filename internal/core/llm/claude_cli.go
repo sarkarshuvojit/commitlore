@@ -23,22 +23,22 @@ func IsClaudeCLIAvailable() bool {
 	execPath, err := exec.LookPath("claude")
 	available := err == nil
 	
-	logger.Info("Claude CLI availability check", "available", available, "path", execPath)
+	logger.Info("Claude CLI availability check", "provider", "claude-cli", "available", available, "path", execPath)
 	return available
 }
 
 // NewClaudeCLIClient creates a new Claude CLI client
 func NewClaudeCLIClient() (*ClaudeCLIClient, error) {
 	logger := core.GetLogger()
-	logger.Info("Creating new Claude CLI client")
+	logger.Info("Creating new Claude CLI client", "provider", "claude-cli")
 	
 	execPath, err := exec.LookPath("claude")
 	if err != nil {
-		logger.Error("Claude CLI not found in PATH", "error", err)
+		logger.Error("Claude CLI not found in PATH", "provider", "claude-cli", "error", err)
 		return nil, fmt.Errorf("claude CLI not found in PATH: %w", err)
 	}
 	
-	logger.Info("Claude CLI client created successfully", "exec_path", execPath)
+	logger.Info("Claude CLI client created successfully", "provider", "claude-cli", "exec_path", execPath)
 	return &ClaudeCLIClient{
 		execPath: execPath,
 	}, nil
@@ -47,7 +47,7 @@ func NewClaudeCLIClient() (*ClaudeCLIClient, error) {
 // GenerateContent generates content using Claude CLI with a simple prompt
 func (c *ClaudeCLIClient) GenerateContent(ctx context.Context, prompt string) (string, error) {
 	logger := core.GetLogger()
-	logger.Info("Generating content with Claude CLI", "prompt_length", len(prompt))
+	logger.Info("Generating content with Claude CLI", "provider", "claude-cli", "prompt_length", len(prompt))
 	
 	return c.GenerateContentWithSystemPrompt(ctx, "", prompt)
 }
@@ -56,6 +56,7 @@ func (c *ClaudeCLIClient) GenerateContent(ctx context.Context, prompt string) (s
 func (c *ClaudeCLIClient) GenerateContentWithSystemPrompt(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	logger := core.GetLogger()
 	logger.Info("Generating content with Claude CLI and system prompt", 
+		"provider", "claude-cli",
 		"system_prompt_length", len(systemPrompt),
 		"user_prompt_length", len(userPrompt),
 		"exec_path", c.execPath)
@@ -89,6 +90,7 @@ func (c *ClaudeCLIClient) GenerateContentWithSystemPrompt(ctx context.Context, s
 	err := cmd.Run()
 	if err != nil {
 		logger.Error("Claude CLI execution failed", 
+			"provider", "claude-cli",
 			"error", err,
 			"stderr", stderr.String(),
 			"duration", time.Since(start),
@@ -104,12 +106,14 @@ func (c *ClaudeCLIClient) GenerateContentWithSystemPrompt(ctx context.Context, s
 	response := strings.TrimSpace(stdout.String())
 	if response == "" {
 		logger.Error("Claude CLI returned empty response", 
+			"provider", "claude-cli",
 			"stderr", stderr.String(),
 			"duration", time.Since(start))
 		return "", fmt.Errorf("claude CLI returned empty response (stderr: %s)", stderr.String())
 	}
 	
 	logger.Info("Successfully generated content with Claude CLI", 
+		"provider", "claude-cli",
 		"response_length", len(response),
 		"duration", time.Since(start))
 	

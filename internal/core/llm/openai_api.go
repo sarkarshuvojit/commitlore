@@ -18,7 +18,7 @@ var _ LLMProvider = (*OpenAIClient)(nil)
 // NewOpenAIClient creates a new OpenAI API client
 func NewOpenAIClient(apiKey string) *OpenAIClient {
 	logger := core.GetLogger()
-	logger.Info("Creating new OpenAI API client", "model", "gpt-4")
+	logger.Info("Creating new OpenAI API client", "provider", "openai-api", "model", "gpt-4")
 	
 	return &OpenAIClient{
 		apiKey: apiKey,
@@ -33,7 +33,7 @@ func NewOpenAIClient(apiKey string) *OpenAIClient {
 // GenerateContent generates content using OpenAI API with a simple prompt
 func (c *OpenAIClient) GenerateContent(ctx context.Context, prompt string) (string, error) {
 	logger := core.GetLogger()
-	logger.Info("Generating content with OpenAI API", "prompt_length", len(prompt))
+	logger.Info("Generating content with OpenAI API", "provider", "openai-api", "prompt_length", len(prompt))
 	
 	return c.GenerateContentWithSystemPrompt(ctx, "", prompt)
 }
@@ -42,6 +42,7 @@ func (c *OpenAIClient) GenerateContent(ctx context.Context, prompt string) (stri
 func (c *OpenAIClient) GenerateContentWithSystemPrompt(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	logger := core.GetLogger()
 	logger.Info("Generating content with system prompt", 
+		"provider", "openai-api",
 		"system_prompt_length", len(systemPrompt),
 		"user_prompt_length", len(userPrompt),
 		"model", c.model)
@@ -72,7 +73,7 @@ func (c *OpenAIClient) GenerateContentWithSystemPrompt(ctx context.Context, syst
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		logger.Error("Failed to marshal OpenAI API request", "error", err)
+		logger.Error("Failed to marshal OpenAI API request", "provider", "openai-api", "error", err)
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 	
@@ -80,7 +81,7 @@ func (c *OpenAIClient) GenerateContentWithSystemPrompt(ctx context.Context, syst
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
 	if err != nil {
-		logger.Error("Failed to create HTTP request", "error", err, "url", c.baseURL+"/chat/completions")
+		logger.Error("Failed to create HTTP request", "provider", "openai-api", "error", err, "url", c.baseURL+"/chat/completions")
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	
@@ -92,7 +93,7 @@ func (c *OpenAIClient) GenerateContentWithSystemPrompt(ctx context.Context, syst
 	logger.Debug("Making HTTP request to OpenAI API")
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		logger.Error("Failed to make HTTP request to OpenAI API", "error", err, "duration", time.Since(start))
+		logger.Error("Failed to make HTTP request to OpenAI API", "provider", "openai-api", "error", err, "duration", time.Since(start))
 		return "", fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
@@ -101,7 +102,7 @@ func (c *OpenAIClient) GenerateContentWithSystemPrompt(ctx context.Context, syst
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Error("Failed to read response body", "error", err)
+		logger.Error("Failed to read response body", "provider", "openai-api", "error", err)
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 	
@@ -109,6 +110,7 @@ func (c *OpenAIClient) GenerateContentWithSystemPrompt(ctx context.Context, syst
 
 	if resp.StatusCode != http.StatusOK {
 		logger.Error("OpenAI API request failed", 
+			"provider", "openai-api",
 			"status_code", resp.StatusCode, 
 			"response_body", string(respBody),
 			"duration", time.Since(start))
@@ -117,19 +119,20 @@ func (c *OpenAIClient) GenerateContentWithSystemPrompt(ctx context.Context, syst
 
 	var openaiResp OpenAIResponse
 	if err := json.Unmarshal(respBody, &openaiResp); err != nil {
-		logger.Error("Failed to unmarshal OpenAI API response", "error", err, "response_body", string(respBody))
+		logger.Error("Failed to unmarshal OpenAI API response", "provider", "openai-api", "error", err, "response_body", string(respBody))
 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 	
 	logger.Debug("Unmarshaled response", "choices", len(openaiResp.Choices))
 
 	if len(openaiResp.Choices) == 0 {
-		logger.Error("No choices in OpenAI API response", "response_id", openaiResp.ID)
+		logger.Error("No choices in OpenAI API response", "provider", "openai-api", "response_id", openaiResp.ID)
 		return "", fmt.Errorf("no choices in response")
 	}
 
 	responseText := openaiResp.Choices[0].Message.Content
 	logger.Info("Successfully generated content with OpenAI API", 
+		"provider", "openai-api",
 		"response_length", len(responseText),
 		"duration", time.Since(start),
 		"response_id", openaiResp.ID,

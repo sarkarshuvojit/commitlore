@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -38,7 +39,7 @@ type ContentModel struct {
 	BaseModel
 	selectedTopic    string
 	selectedFormat   string
-	promptText       string
+	textarea         textarea.Model
 	generatedContent string
 	isEditingPrompt  bool
 	isGenerating     bool
@@ -61,9 +62,18 @@ func NewContentModel(base BaseModel) *ContentModel {
 		asyncWrapper = llm.NewAsyncLLMWrapper(base.llmProvider, 2*time.Minute)
 	}
 
+	// Initialize textarea with proper configuration
+	ta := textarea.New()
+	ta.SetWidth(94)    // Match the width of the prompt box
+	ta.SetHeight(8)    // Use most of the available height
+	ta.Placeholder = "Enter your instructions for content generation..."
+	ta.Focus()
+	ta.Prompt = ""
+	ta.ShowLineNumbers = false
+
 	return &ContentModel{
 		BaseModel:        base,
-		promptText:       "",
+		textarea:         ta,
 		generatedContent: "",
 		isEditingPrompt:  true,
 		isGenerating:     false,
@@ -139,20 +149,30 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Handle Enter key specifically - check for plain Enter
+		if msg.Type == tea.KeyEnter {
+			if msg.String() == "enter" {
+				// Plain Enter - trigger content generation
+				if m.isEditingPrompt && !m.showFinalOutput {
+					m.isGenerating = true
+					m.errorMsg = ""
+					m.generationStartTime = time.Now()
+					m.hourglassFrame = 0
+					model, cmd := m.generateContent()
+					return model, tea.Batch(cmd, doTick())
+				}
+			} else {
+				// Shift+Enter, Ctrl+Enter, Alt+Enter - pass to textarea for new line
+				if m.isEditingPrompt {
+					var cmd tea.Cmd
+					m.textarea, cmd = m.textarea.Update(msg)
+					return m, cmd
+				}
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
-		case "backspace":
-			if m.isEditingPrompt && len(m.promptText) > 0 {
-				m.promptText = m.promptText[:len(m.promptText)-1]
-			}
-		case "enter", "shift+enter":
-			if !m.isGenerating {
-				m.isGenerating = true
-				m.errorMsg = ""
-				m.generationStartTime = time.Now()
-				m.hourglassFrame = 0
-				model, cmd := m.generateContent()
-				return model, tea.Batch(cmd, doTick())
-			}
 		case "escape":
 			if m.showFinalOutput {
 				m.showFinalOutput = false
@@ -167,9 +187,11 @@ func (m *ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				// Handle viewport scrolling
 				m.viewport, _ = m.viewport.Update(msg)
-			} else if m.isEditingPrompt && len(msg.String()) == 1 {
-				// Handle text input for prompt editing
-				m.promptText += msg.String()
+			} else if m.isEditingPrompt {
+				// Handle textarea updates for all other keys
+				var cmd tea.Cmd
+				m.textarea, cmd = m.textarea.Update(msg)
+				return m, cmd
 			}
 		}
 	}
@@ -206,7 +228,7 @@ func (m *ContentModel) View() string {
 		Width(96).
 		Height(10).
 		Padding(1).
-		Render(m.promptText + "█")
+		Render(m.textarea.View())
 
 	content := lipgloss.JoinVertical(lipgloss.Left, promptTitle, promptBox)
 
@@ -220,10 +242,11 @@ func (m *ContentModel) View() string {
 		helpText = lipgloss.JoinHorizontal(lipgloss.Left, generatingHelp, " • ", backHelp, " • ", quitHelp)
 	} else {
 		typeHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("type"), helpDescStyle.Render("edit prompt"))
+		newlineHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("shift+enter"), helpDescStyle.Render("new line"))
 		generateHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("enter"), helpDescStyle.Render("generate"))
 		backHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("esc"), helpDescStyle.Render("back"))
 		quitHelp := fmt.Sprintf("%s %s", helpKeyStyle.Render("q"), helpDescStyle.Render("quit"))
-		helpText = lipgloss.JoinHorizontal(lipgloss.Left, typeHelp, " • ", generateHelp, " • ", backHelp, " • ", quitHelp)
+		helpText = lipgloss.JoinHorizontal(lipgloss.Left, typeHelp, " • ", newlineHelp, " • ", generateHelp, " • ", backHelp, " • ", quitHelp)
 	}
 	statusBar := statusBarStyle.Render(helpText)
 
@@ -235,7 +258,7 @@ func (m *ContentModel) View() string {
 func (m *ContentModel) SetContext(topic, format string) {
 	m.selectedTopic = topic
 	m.selectedFormat = format
-	m.promptText = ""
+	m.textarea.SetValue("")
 	m.isEditingPrompt = true
 	m.showFinalOutput = false
 }
@@ -244,7 +267,7 @@ func (m *ContentModel) SetContext(topic, format string) {
 func (m *ContentModel) SetContextWithCommits(topic, format string, commits []core.Commit, selectedCommits map[int]bool) {
 	m.selectedTopic = topic
 	m.selectedFormat = format
-	m.promptText = ""
+	m.textarea.SetValue("")
 	m.isEditingPrompt = true
 	m.showFinalOutput = false
 	m.commits = commits
@@ -256,11 +279,12 @@ func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
 	logger.Info("Starting content generation",
 		"topic", m.selectedTopic,
 		"format", m.selectedFormat,
-		"prompt_length", len(m.promptText))
+		"prompt_length", len(m.textarea.Value()),
+		"provider", m.llmProviderType)
 
 	if m.asyncWrapper == nil {
 		m.errorMsg = "LLM provider not configured"
-		logger.Error("LLM provider not configured for content generation")
+		logger.Error("LLM provider not configured for content generation", "provider", m.llmProviderType)
 		return m, nil
 	}
 
@@ -293,7 +317,7 @@ func (m *ContentModel) generateContent() (tea.Model, tea.Cmd) {
 				// Get changelist data for this commit
 				changeset, err := core.GetChangesForCommit(m.repoPath, commit.Hash)
 				if err != nil {
-					logger.Error("Failed to get changeset for commit", "hash", commit.Hash, "error", err)
+					logger.Error("Failed to get changeset for commit", "hash", commit.Hash, "error", err, "provider", m.llmProviderType)
 					// Fall back to basic commit info
 					detail := fmt.Sprintf("- %s: %s", commit.Hash[:8], commit.Subject)
 					commitDetails = append(commitDetails, detail)
@@ -340,13 +364,13 @@ Additional user instructions: %s
 
 Based on the following commit changesets from the selected commits:
 
-%s`, m.selectedFormat, m.selectedTopic, m.promptText, changelistData)
+%s`, m.selectedFormat, m.selectedTopic, m.textarea.Value(), changelistData)
 
 	// Start async LLM call
 	ctx := context.Background()
 	m.asyncWrapper.GenerateContentWithSystemPromptAsync(ctx, systemPrompt, userPrompt, responseChan)
 
-	logger.Info("Started async LLM call for content generation")
+	logger.Info("Started async LLM call for content generation", "provider", m.llmProviderType)
 
 	// Return command to wait for response
 	return m, llm.WaitForLLMResponse(responseChan)
