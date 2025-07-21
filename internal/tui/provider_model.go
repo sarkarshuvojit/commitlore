@@ -164,7 +164,15 @@ func (m *ProviderModel) renderProviderRow(provider config.Provider, isSelected b
 
 	// Build the row content
 	firstLine := fmt.Sprintf("%s%s %s %s", cursor, typeIndicator, name, strings.Join(statusIndicators, " "))
-	secondLine := fmt.Sprintf("  %s", provider.Description)
+	
+	// Use "Under development" for disabled providers, otherwise use the actual description
+	var description string
+	if !provider.Enabled {
+		description = "Under development"
+	} else {
+		description = provider.Description
+	}
+	secondLine := fmt.Sprintf("  %s", description)
 
 	// Add availability details for unavailable providers
 	thirdLine := ""
@@ -179,7 +187,7 @@ func (m *ProviderModel) renderProviderRow(provider config.Provider, isSelected b
 		rowContent = lipgloss.JoinVertical(lipgloss.Left, firstLine, secondLine)
 	}
 
-	// Apply styling based on state
+	// Apply styling based on state with consistent width and alignment
 	var style lipgloss.Style
 	if isSelected {
 		if !provider.Enabled {
@@ -189,7 +197,6 @@ func (m *ProviderModel) renderProviderRow(provider config.Provider, isSelected b
 		} else {
 			style = selectedCommitRowStyle
 		}
-		return style.Width(96).Align(lipgloss.Left).Render(rowContent)
 	} else {
 		if !provider.Enabled {
 			style = disabledRowStyle
@@ -198,8 +205,10 @@ func (m *ProviderModel) renderProviderRow(provider config.Provider, isSelected b
 		} else {
 			style = commitRowStyle
 		}
-		return style.Render(rowContent)
 	}
+	
+	// Apply consistent width and alignment to all rows
+	return style.Width(96).Align(lipgloss.Left).Render(rowContent)
 }
 
 func (m *ProviderModel) getTypeIndicator(providerType config.ProviderType) string {
