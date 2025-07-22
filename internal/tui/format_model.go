@@ -21,7 +21,7 @@ type FormatModel struct {
 func NewFormatModel(base BaseModel) *FormatModel {
 	return &FormatModel{
 		BaseModel: base,
-		formats:   []string{ContentFormatBlogArticle, ContentFormatTwitterThread, ContentFormatLinkedInPost},
+		formats:   []string{ContentFormatBlogArticle, ContentFormatTwitterThread, ContentFormatLinkedInPost, ContentFormatTechnicalDocs},
 		cursor:    0,
 	}
 }
@@ -97,6 +97,8 @@ func (m *FormatModel) View() string {
 			description = ContentFormatTwitterThreadDesc
 		case ContentFormatLinkedInPost:
 			description = ContentFormatLinkedInPostDesc
+		case ContentFormatTechnicalDocs:
+			description = ContentFormatTechnicalDocsDesc
 		}
 		
 		firstLine := fmt.Sprintf("%s%s", cursor, formatText)
