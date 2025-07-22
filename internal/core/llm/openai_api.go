@@ -18,7 +18,7 @@ var _ LLMProvider = (*OpenAIClient)(nil)
 // NewOpenAIClient creates a new OpenAI API client
 func NewOpenAIClient(apiKey string) *OpenAIClient {
 	logger := core.GetLogger()
-	logger.Info("Creating new OpenAI API client", "provider", "openai-api", "model", "gpt-4")
+	logger.Info("Creating new OpenAI API client", "provider", "openai-api", "model", "gpt-3.5-turbo")
 	
 	return &OpenAIClient{
 		apiKey: apiKey,
@@ -26,7 +26,7 @@ func NewOpenAIClient(apiKey string) *OpenAIClient {
 			Timeout: 60 * time.Second,
 		},
 		baseURL: "https://api.openai.com/v1",
-		model:   "gpt-4",
+		model:   "gpt-3.5-turbo",
 	}
 }
 

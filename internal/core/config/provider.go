@@ -66,7 +66,7 @@ func DefaultProviderConfig() *ProviderConfig {
 				Enabled:     true, // Now implemented
 				Available:   false,
 				Config: map[string]string{
-					"model":   "gpt-4",
+					"model":   "gpt-3.5-turbo",
 					"api_key": "OPENAI_API_KEY",
 				},
 			},
@@ -95,7 +95,7 @@ func DefaultProviderConfig() *ProviderConfig {
 				},
 			},
 		},
-		ActiveProviderID: "claude-cli", // Default to Claude CLI
+		ActiveProviderID: "openai-api", // Default to Claude CLI
 	}
 }
 
