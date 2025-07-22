@@ -2,7 +2,7 @@
 
 > Transform your Git history into compelling developer stories
 
-[![CommitLore Demo](https://img.youtube.com/vi/HbnYIGFfMDw/0.jpg)](https://youtu.be/HbnYIGFfMDw?si=fbdsaZ63maQtJpQg)
+[![asciicast](https://asciinema.org/a/729244.svg)](https://asciinema.org/a/729244)
 
 *Watch a quick demo of CommitLore in action!*
 
