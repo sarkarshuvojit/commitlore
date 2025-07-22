@@ -95,7 +95,7 @@ func DefaultProviderConfig() *ProviderConfig {
 				},
 			},
 		},
-		ActiveProviderID: "openai-api", // Default to Claude CLI
+		ActiveProviderID: "claude-cli", // Default to Claude CLI
 	}
 }
 
