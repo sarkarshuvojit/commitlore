@@ -59,7 +59,7 @@ CommitLore follows a **Bring Your Own LLM** philosophy, giving you the flexibili
 |----------|------|---------|-------|
 | **Claude API** | Cloud API | ✅ Supported | Anthropic's Claude via API |
 | **Claude CLI** | Local CLI | ✅ Supported | Official Claude CLI tool |
-| **OpenAI API** | Cloud API | 🔄 Planned | GPT-4, GPT-3.5-turbo |
+| **OpenAI API** | Cloud API | ✅ Supported | GPT-3.5-turbo |
 | **Ollama** | Local | 🔄 Planned | Local LLM inference |
 | **LM Studio** | Local | 🔄 Planned | Local model management |
 | **Gemini API** | Cloud API | 🔄 Planned | Google's Gemini |
